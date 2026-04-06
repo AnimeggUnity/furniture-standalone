@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>新北再生家具管理後台</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; padding: 0; }
+    body { display: flex; flex-direction: column; background: #f0f2f5; font-family: 'Microsoft JhengHei', sans-serif; font-size: 13px; }
+
+    .tm-v2-panel { display: none; background: #fff; border-bottom: 1px solid #e0e0e0; flex-shrink: 0; }
+    .tm-v2-panel.open { display: block; }
+
+    #tm-db-main tbody td { padding: 7px 10px; border-bottom: 1px solid #eee; }
+    #tm-db-main tbody tr:not(.tm-group-hdr) { transition: background .1s; cursor: default; }
+    #tm-db-main tbody tr:not(.tm-group-hdr):hover { background: #dbeafe !important; }
+
+    #tm-photo-modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,.75);
+      z-index: 10001; display: flex; align-items: center;
+      justify-content: center; flex-direction: column; gap: 12px;
+    }
+    #tm-photo-modal .tm-photo-title  { color: #fff; font-size: 15px; font-weight: bold; max-width: 80vw; text-align: center; }
+    #tm-photo-modal .tm-photo-grid   { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-width: 90vw; max-height: 80vh; overflow-y: auto; }
+    #tm-photo-modal .tm-photo-grid img { width: 520px; height: 390px; object-fit: cover; border-radius: 6px; cursor: pointer; transition: transform .15s; }
+    #tm-photo-modal .tm-photo-grid img:hover { transform: scale(1.04); }
+    #tm-photo-modal .tm-photo-close { color: #fff; font-size: 13px; opacity: .7; cursor: pointer; margin-top: 4px; }
+    #tm-photo-modal .tm-photo-close:hover { opacity: 1; }
+  </style>
+</head>
+<body>
+  <script src="state/appState.js"></script>
+  <script src="config/constants.js"></script>
+  <script src="config/mappings.js"></script>
+  <script src="core/errorHandler.js"></script>
+  <script src="init-shims.js"></script>
+  <script src="state/itemStatus.js"></script>
+  <script src="state/bidStatus.js"></script>
+  <script src="utils/image.js"></script>
+  <script src="utils/csv.js"></script>
+  <script src="utils/api.js"></script>
+  <script src="utils/sheetSync.js"></script>
+  <script src="ui/queryBuilder.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "新北再生家具管理後台",
+  "version": "1.0.0",
+  "description": "新北市再生家具拍賣網後台管理工具",
+  "icons": {
+    "128": "icon.png"
+  },
+  "host_permissions": [
+    "https://recycledstuff.ntpc.gov.tw/BidMgr/*",
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_icon": "icon.png",
+    "default_title": "開啟再生家具後台"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://recycledstuff.ntpc.gov.tw/BidMgr/*"],
+      "js": ["inject-btn.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  }
+}
