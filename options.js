@@ -242,6 +242,7 @@
     };
   }
 
+
   // ─── 圖片燈箱 ──────────────────────────────────────────────────
   function showPhotoModal(name, photos) {
     document.getElementById('tm-photo-modal')?.remove();
@@ -407,6 +408,7 @@
       return groupHeader + `<tr>
         <td style="white-space:nowrap;">
           <button class="tm-edit-btn" data-idx="${row.AutoID}" title="編輯" style="padding:2px 8px;font-size:11px;border:1px solid #e67e22;background:#fff;color:#e67e22;border-radius:3px;cursor:pointer;">✏</button>
+          <button class="tm-clone-btn" data-idx="${row.AutoID}" title="複製建立新商品" style="padding:2px 7px;font-size:11px;border:1px solid #27ae60;background:#fff;color:#27ae60;border-radius:3px;cursor:pointer;margin-left:3px;">⧉</button>
           <button class="tm-pack-btn" data-idx="${row.AutoID}" title="打包匯出" style="padding:2px 7px;font-size:11px;border:1px solid #8e44ad;background:#fff;color:#8e44ad;border-radius:3px;cursor:pointer;margin-left:3px;">↓</button>
           <button class="tm-del-btn" data-idx="${row.AutoID}" title="刪除" style="padding:2px 7px;font-size:11px;border:1px solid #e74c3c;background:#fff;color:#e74c3c;border-radius:3px;cursor:pointer;margin-left:3px;">🗑</button>
         </td>
@@ -483,6 +485,43 @@
         showEditModal(row, () => {
           if (startInputEl && endInputEl) handleFetch(startInputEl, endInputEl);
         });
+      });
+    });
+
+    body.querySelectorAll('.tm-clone-btn').forEach(el => {
+      el.addEventListener('click', async () => {
+        const row = indexedData[el.dataset.idx];
+        if (!row) return;
+        el.textContent = '...'; el.disabled = true;
+        const payload = {
+          CategoryID:      row.CategoryID,
+          Name:            row.Name,
+          Description:     row.Description || '',
+          InitPrice:       row.InitPrice,
+          OriginPrice:     row.OriginPrice || row.InitPrice,
+          MinAddPrice:     row.MinAddPrice || 10,
+          StartDate:       row.StartDate,
+          EndDate:         row.EndDate,
+          DistID:          row.DistID || '231',
+          DeliveryAddress: row.DeliveryAddress || '',
+          Length:          row.Length || 0,
+          Width:           row.Width || 0,
+          Height:          row.Height || 0,
+          Photos:          row.Photos || [],
+        };
+        try {
+          const resp = await fetch(BASE + '/BidMgr/api/Product/AddProduct', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          statusEl.textContent = `已複製：${row.Name}`;
+          if (startInputEl && endInputEl) handleFetch(startInputEl, endInputEl);
+        } catch (e) {
+          statusEl.textContent = `複製失敗：${e.message}`;
+        } finally {
+          el.textContent = '⧉'; el.disabled = false;
+        }
       });
     });
 
