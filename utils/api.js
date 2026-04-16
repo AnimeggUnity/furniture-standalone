@@ -159,6 +159,20 @@
     return await response.json();
   }
 
+  async function closeProductNow(item) {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const nowStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const payload = { ...item, EndDate: nowStr };
+    const response = await fetch(BASE + '/BidMgr/api/Product/UpdateProduct', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+  }
+
   async function getProducts(startDate, endDate) {
     const resp = await fetch(BASE + '/BidMgr/api/Product/GetProducts', {
       method: 'POST',
@@ -228,4 +242,5 @@
   app.enrichWithBids = enrichWithBids;
   app.getFAQs = getFAQs;
   app.updateProductFAQ = updateProductFAQ;
+  app.closeProductNow = closeProductNow;
 })(window.FurnitureHelper = window.FurnitureHelper || {});

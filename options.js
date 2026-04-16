@@ -509,6 +509,7 @@
           <button class="tm-clone-btn" data-idx="${row.AutoID}" title="複製建立新商品" style="padding:2px 7px;font-size:11px;border:1px solid #27ae60;background:#fff;color:#27ae60;border-radius:3px;cursor:pointer;margin-left:3px;">⧉</button>
           <button class="tm-pack-btn" data-idx="${row.AutoID}" title="打包匯出" style="padding:2px 7px;font-size:11px;border:1px solid #8e44ad;background:#fff;color:#8e44ad;border-radius:3px;cursor:pointer;margin-left:3px;">↓</button>
           <button class="tm-del-btn" data-idx="${row.AutoID}" title="刪除" style="padding:2px 7px;font-size:11px;border:1px solid #e74c3c;background:#fff;color:#e74c3c;border-radius:3px;cursor:pointer;margin-left:3px;">🗑</button>
+          <button class="tm-close-now-btn" data-idx="${row.AutoID}" title="即時結標" style="padding:2px 7px;font-size:11px;border:1px solid #7f8c8d;background:#fff;color:#7f8c8d;border-radius:3px;cursor:pointer;margin-left:3px;">⏹</button>
         </td>
         <td>${row.AutoID}</td>
         <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${row.Name || ''}">${row.Name || '未命名'}</td>
@@ -581,6 +582,42 @@
           if (i !== -1) products[i].IsGet = newIsGet;
           renderTable(products);
         } catch { el.disabled = false; el.textContent = '失敗'; }
+      });
+    });
+
+    body.querySelectorAll('.tm-close-now-btn').forEach(el => {
+      let confirmTimer = null;
+      el.addEventListener('click', async () => {
+        if (!confirmTimer) {
+          el.textContent = '確認?';
+          el.style.borderColor = '#e74c3c';
+          el.style.color = '#e74c3c';
+          confirmTimer = setTimeout(() => {
+            el.textContent = '⏹';
+            el.style.borderColor = '#7f8c8d';
+            el.style.color = '#7f8c8d';
+            confirmTimer = null;
+          }, 3000);
+          return;
+        }
+        clearTimeout(confirmTimer); confirmTimer = null;
+        const row = indexedData[el.dataset.idx];
+        if (!row) return;
+        el.disabled = true; el.textContent = '結標中...';
+        try {
+          await app.closeProductNow(row);
+          const now = new Date();
+          const pad = n => String(n).padStart(2, '0');
+          const nowStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+          row.EndDate = nowStr;
+          const i = products.findIndex(r => r.AutoID === row.AutoID);
+          if (i !== -1) products[i].EndDate = nowStr;
+          renderTable(products);
+        } catch (e) {
+          el.disabled = false; el.textContent = '⏹';
+          el.style.borderColor = '#7f8c8d'; el.style.color = '#7f8c8d';
+          statusEl.textContent = `即時結標失敗：${e.message}`;
+        }
       });
     });
 
