@@ -2,7 +2,7 @@
 
 一個專為「新北市再生家具拍賣網」管理員設計的專業級 Chrome 擴充功能，提供自動化上架、競標監控、聯絡人同步與高效資料管理功能。
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.1-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Chrome%20|%20Edge-lightgrey.svg)
 ![Manifest](https://img.shields.io/badge/manifest-V3-orange.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -106,6 +106,39 @@
 
 ---
 
+### 4. Chrome Extension CSP 規則（Manifest V3）
+
+MV3 預設採用嚴格的 Content Security Policy，以下幾種寫法會被**靜默封鎖**（不拋出例外，只是無效）：
+
+#### ❌ 禁止寫法
+
+| 類型 | 禁止範例 | 原因 |
+|------|----------|------|
+| innerHTML 內嵌事件 | `'<button onclick="fn()">X</button>'` | inline event handler 被 CSP 封鎖 |
+| eval | `eval('1+1')` | 禁止動態代碼執行 |
+| new Function | `new Function('return 1')()` | 同上 |
+| setTimeout 字串 | `setTimeout('fn()', 1000)` | 字串形式等同 eval |
+| setInterval 字串 | `setInterval('fn()', 1000)` | 同上 |
+| javascript: URL | `<a href="javascript:void(0)">` | 禁止 javascript: 協議 |
+
+#### ✅ 正確寫法
+
+```js
+// innerHTML 設完後，用 JS 綁定事件
+el.innerHTML = '<button id="close-btn">×</button>';
+el.querySelector('#close-btn').onclick = () => modal.remove();
+// 或
+el.querySelector('#close-btn').addEventListener('click', () => modal.remove());
+
+// setTimeout / setInterval 用函式而非字串
+setTimeout(() => fn(), 1000);   // ✅
+setTimeout('fn()', 1000);       // ❌
+```
+
+> **背景**：本專案 `options.html` 是作為獨立分頁開啟的 Extension Page，同樣受 MV3 CSP 約束。歷史上曾因在 `showFAQModal` 的 `innerHTML` 裡寫 `onclick="..."` 導致關閉按鈕靜默失效（2026/04 修復）。
+
+---
+
 ## 📊 資料結構 (Payload)
 
 ### 產品上傳結構 (Product Schema)
@@ -144,7 +177,21 @@
 
 ## 🔄 版本更新歷史
 
-### v1.0.0 (Current - 2026/04)
+### v1.1.1 (Current - 2026/04)
+- 🐛 **聯絡人編輯**：修正得標者聯絡資訊無法清空存檔的問題。
+  - 編輯模式下允許三欄全空存檔（清除資料）；新增模式維持至少填一欄的限制。
+  - 修正 `sheetSync.updateContact` 中空字串不會傳送至後端與本地快取的問題。
+- 🐛 **Modal 選字**：修正在輸入框拖曳選取文字時，滑鼠飛出範圍導致 Modal 意外關閉的問題。
+  - 改以 `mousedown` 追蹤點擊來源，確保只有真正點擊背景才觸發關閉，套用至全部 4 個 Modal。
+
+### v1.1.0 (2026/04)
+- ✅ 整合 **商品問答（FAQ）顯示與回覆** 功能。
+  - 查詢時並行抓取 `GetFAQs` API，以 `ProductID` 建立索引，零等待時間。
+  - 表格新增「問答」欄：無問答顯示 `—`、有未回覆顯示紅色 `N則 (X未回)`、全部已回覆顯示綠色 `N則`。
+  - 點擊徽章開啟 Modal，逐條顯示問題/回覆；未回覆項目可直接在 Modal 內輸入並送出。
+  - 回覆成功後即時更新本地狀態與表格徽章（因 `GetFAQs` 只回傳未回覆項目）。
+
+### v1.0.0 (2026/04)
 - ✅ 基礎架構遷移至 **Manifest V3**。
 - ✅ 整合 **聯絡人資料同步系統 (Sheet Sync)**。
 - ✅ 強化 **競標狀態監控** 與自動化查詢邏輯。

@@ -198,6 +198,27 @@
     }));
   }
 
+  async function getFAQs(distID = '231') {
+    const resp = await fetch(`${BASE}/BidMgr/api/Product/GetFAQs?distID=${distID}`, {
+      credentials: 'include',
+      headers: { accept: 'application/json' }
+    });
+    if (!resp.ok) throw new Error(`GetFAQs failed: ${resp.status}`);
+    return resp.json();
+  }
+
+  async function updateProductFAQ(faq, replyText) {
+    const payload = { ...faq, Reply: replyText };
+    const resp = await fetch(`${BASE}/BidMgr/api/Product/UpdateProductFAQ`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) throw new Error(`UpdateProductFAQ failed: ${resp.status}`);
+    return resp.json();
+  }
+
   app.uploadImage = uploadImage;
   app.directSubmitToAPI = directSubmitToAPI;
   app.deleteProductAPI = deleteProductAPI;
@@ -205,4 +226,6 @@
   app.updateProductEndDate = updateProductEndDate;
   app.getProducts = getProducts;
   app.enrichWithBids = enrichWithBids;
+  app.getFAQs = getFAQs;
+  app.updateProductFAQ = updateProductFAQ;
 })(window.FurnitureHelper = window.FurnitureHelper || {});

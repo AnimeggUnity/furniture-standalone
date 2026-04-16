@@ -133,9 +133,9 @@
       formData.append('action', 'update_contact');
       formData.append('apiKey', API_KEY);
       formData.append('account', account);
-      if (phone) formData.append('phone', phone);
-      if (mobile) formData.append('mobile', mobile);
-      if (note) formData.append('note', note);
+      formData.append('phone', phone);
+      formData.append('mobile', mobile);
+      formData.append('note', note);
 
       const response = await fetch(API_BASE_URL, {
         method: 'POST',
@@ -150,9 +150,9 @@
 
       // 更新本地快取
       if (contactsDB[account]) {
-        if (phone) contactsDB[account].phone = phone;
-        if (mobile) contactsDB[account].mobile = mobile;
-        if (note) contactsDB[account].note = note;
+        contactsDB[account].phone = phone;
+        contactsDB[account].mobile = mobile;
+        contactsDB[account].note = note;
       }
 
       console.log(`✅ 已更新聯絡人: ${account}`);

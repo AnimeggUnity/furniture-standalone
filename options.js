@@ -3,6 +3,7 @@
   const BASE = 'https://recycledstuff.ntpc.gov.tw';
 
   let products = [];
+  let faqsByProductID = {};
   let statusEl = null;
   let featureBtns = [];
   let activeFilter = { conditions: [], logic: 'AND' };
@@ -93,13 +94,15 @@
     const close = () => ovl.remove();
     dialog.querySelector('#tm-ecc-close').onclick = close;
     dialog.querySelector('#tm-ecc-cancel').onclick = close;
-    ovl.addEventListener('click', e => { if (e.target === ovl) close(); });
+    let ovlMousedown = false;
+    ovl.addEventListener('mousedown', e => { ovlMousedown = e.target === ovl; });
+    ovl.addEventListener('click', e => { if (e.target === ovl && ovlMousedown) close(); });
     const saveBtn = dialog.querySelector('#tm-ecc-save');
     saveBtn.onclick = async () => {
       const phone  = dialog.querySelector('#tm-ecc-phone').value.trim();
       const mobile = dialog.querySelector('#tm-ecc-mobile').value.trim();
       const note   = dialog.querySelector('#tm-ecc-note').value.trim();
-      if (!phone && !mobile && !note) { statusEl.textContent = '請至少填寫一個欄位'; return; }
+      if (!contact && !phone && !mobile && !note) { statusEl.textContent = '請至少填寫一個欄位'; return; }
       saveBtn.disabled = true; saveBtn.textContent = '儲存中...';
       const ok = await app.SheetSync.updateContact(account, phone, mobile, note);
       if (ok) { close(); statusEl.textContent = '聯絡資訊已更新'; renderTable(getDisplayData()); }
@@ -170,7 +173,9 @@
     const close = () => ovl.remove();
     ovl.querySelector('#tm-edit-close').onclick = close;
     ovl.querySelector('#tm-edit-cancel').onclick = close;
-    ovl.addEventListener('click', e => { if (e.target === ovl) close(); });
+    let ovlMousedown = false;
+    ovl.addEventListener('mousedown', e => { ovlMousedown = e.target === ovl; });
+    ovl.addEventListener('click', e => { if (e.target === ovl && ovlMousedown) close(); });
 
     let pendingPhotos = [...(row.Photos || [])];
     const renderPhotoGrid = () => {
@@ -271,6 +276,92 @@
     document.body.appendChild(modal);
   }
 
+  // ─── 問答燈箱 ──────────────────────────────────────────────────
+  function showFAQModal(productName, faqs) {
+    document.getElementById('tm-faq-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'tm-faq-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:10001;display:flex;align-items:center;justify-content:center;';
+    modal.onclick = e => { if (e.target === modal) modal.remove(); };
+
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff;border-radius:8px;width:560px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.3);font-size:13px;';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'background:#2c3e50;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1;';
+    header.innerHTML = `<span style="font-weight:bold;">問答紀錄 — ${productName}</span><span style="cursor:pointer;font-size:18px;opacity:.7;">×</span>`;
+    header.querySelector('span:last-child').onclick = () => modal.remove();
+
+    const body = document.createElement('div');
+    body.style.cssText = 'padding:12px 16px;';
+
+    const fmt = s => s ? s.slice(0, 16).replace('T', ' ') : '—';
+
+    if (!faqs.length) {
+      body.innerHTML = '<p style="color:#999;">無問答資料</p>';
+    } else {
+      faqs.forEach(f => {
+        const item = document.createElement('div');
+        item.style.cssText = 'border-bottom:1px solid #eee;padding:12px 0;';
+
+        const qRow = document.createElement('div');
+        qRow.style.cssText = 'display:flex;justify-content:space-between;margin-bottom:6px;';
+        qRow.innerHTML = `<span style="font-weight:bold;color:#2c3e50;">Q：${f.Question}</span><span style="color:#999;font-size:11px;white-space:nowrap;margin-left:8px;">${f.ClientUserNickName || f.ClientUserAccount || ''}　${fmt(f.CreateDate)}</span>`;
+
+        const aRow = document.createElement('div');
+        aRow.style.cssText = `color:${f.Reply ? '#27ae60' : '#e74c3c'};padding-left:8px;`;
+        aRow.textContent = `A：${f.Reply || '（尚未回覆）'}`;
+
+        item.appendChild(qRow);
+        item.appendChild(aRow);
+
+        if (!f.Reply) {
+          const replyArea = document.createElement('div');
+          replyArea.style.cssText = 'margin-top:8px;padding-left:8px;display:flex;gap:6px;';
+          const textarea = document.createElement('textarea');
+          textarea.rows = 2;
+          textarea.placeholder = '輸入回覆內容...';
+          textarea.style.cssText = 'flex:1;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;resize:vertical;font-family:inherit;';
+          const btn = document.createElement('button');
+          btn.textContent = '送出';
+          btn.style.cssText = 'padding:4px 12px;background:#2980b9;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;align-self:flex-start;white-space:nowrap;';
+          btn.onclick = async () => {
+            const reply = textarea.value.trim();
+            if (!reply) { textarea.focus(); return; }
+            btn.disabled = true; btn.textContent = '送出中...';
+            try {
+              await app.updateProductFAQ(f, reply);
+              // GetFAQs 只回傳未回覆，回覆後從本地移除
+              const pid = f.ProductID;
+              if (faqsByProductID[pid]) {
+                faqsByProductID[pid] = faqsByProductID[pid].filter(q => q.AutoID !== f.AutoID);
+                if (!faqsByProductID[pid].length) delete faqsByProductID[pid];
+              }
+              aRow.style.color = '#27ae60';
+              aRow.textContent = `A：${reply}`;
+              replyArea.remove();
+              renderTable(getDisplayData());
+            } catch (e) {
+              btn.disabled = false; btn.textContent = '送出';
+              btn.style.background = '#e74c3c';
+              btn.title = e.message;
+            }
+          };
+          replyArea.appendChild(textarea);
+          replyArea.appendChild(btn);
+          item.appendChild(replyArea);
+        }
+
+        body.appendChild(item);
+      });
+    }
+
+    box.appendChild(header);
+    box.appendChild(body);
+    modal.appendChild(box);
+    document.body.appendChild(modal);
+  }
+
   // ─── 打包工具 ──────────────────────────────────────────────────
   async function packPhotos(photos) {
     const result = [];
@@ -361,9 +452,11 @@
       return `<button class="tm-get-btn" data-idx="${row.AutoID}" style="padding:2px 10px;border:1px solid ${color};background:#fff;color:${color};border-radius:3px;cursor:pointer;font-size:12px;">${label}</button>`;
     };
 
-    const sorted = isSortedByWinner
+    const hasFaq = r => (faqsByProductID[r.ID]?.length || 0) > 0;
+    const sorted = (isSortedByWinner
       ? sortByWinnerFn([...data])
-      : [...data].sort((a, b) => Number(b.AutoID) - Number(a.AutoID));
+      : [...data].sort((a, b) => Number(b.AutoID) - Number(a.AutoID))
+    ).sort((a, b) => hasFaq(b) - hasFaq(a));
 
     const getGroupKey   = r => r.WinnerID ? `w_${r.WinnerID}` : (r.HasBids || r.Bidder) ? 'bidding' : 'nobids';
     const getGroupLabel = r => {
@@ -402,9 +495,14 @@
           const lbl = isW
             ? `<span style="font-size:13px;color:#1a5276;">${getGroupLabel(row)}</span>`
             : `<span style="color:#555;">${getGroupLabel(row)}</span>`;
-          groupHeader = `<tr class="tm-group-hdr" style="background:${bg};border-left:4px solid ${ac};"><td colspan="13" style="padding:6px 10px;font-size:12px;font-weight:bold;letter-spacing:.5px;">${lbl}${contactHTML}${editBtnHTML}</td></tr>`;
+          groupHeader = `<tr class="tm-group-hdr" style="background:${bg};border-left:4px solid ${ac};"><td colspan="14" style="padding:6px 10px;font-size:12px;font-weight:bold;letter-spacing:.5px;">${lbl}${contactHTML}${editBtnHTML}</td></tr>`;
         }
       }
+      const rowFaqs = faqsByProductID[row.ID] || [];
+      const unanswered = rowFaqs.filter(f => !f.Reply).length;
+      const faqCell = rowFaqs.length === 0
+        ? '<span style="color:#ccc;">—</span>'
+        : `<button class="tm-faq-btn" data-idx="${row.AutoID}" style="padding:2px 8px;font-size:11px;border:1px solid ${unanswered ? '#e74c3c' : '#27ae60'};background:#fff;color:${unanswered ? '#e74c3c' : '#27ae60'};border-radius:3px;cursor:pointer;">${rowFaqs.length}則${unanswered ? ` (${unanswered}未回)` : ''}</button>`;
       return groupHeader + `<tr>
         <td style="white-space:nowrap;">
           <button class="tm-edit-btn" data-idx="${row.AutoID}" title="編輯" style="padding:2px 8px;font-size:11px;border:1px solid #e67e22;background:#fff;color:#e67e22;border-radius:3px;cursor:pointer;">✏</button>
@@ -415,6 +513,7 @@
         <td>${row.AutoID}</td>
         <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${row.Name || ''}">${row.Name || '未命名'}</td>
         <td><button class="tm-name-link" data-idx="${row.AutoID}" style="padding:2px 8px;font-size:11px;border:1px solid #2980b9;background:#fff;color:#2980b9;border-radius:3px;cursor:pointer;">圖片</button></td>
+        <td>${faqCell}</td>
         <td>${row.CategoryName || '—'}</td>
         <td style="text-align:right;">${money(row.InitPrice)}</td>
         <td style="text-align:right;">${bidPrice(row)}</td>
@@ -434,7 +533,7 @@
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead>
           <tr style="background:#2c3e50;color:#fff;position:sticky;top:0;z-index:1;">
-            ${th('')}${th('編號')}${th('名稱')}${th('')}${th('類別')}
+            ${th('')}${th('編號')}${th('名稱')}${th('')}${th('問答')}${th('類別')}
             ${th('起標價', 'right')}${th('競標價', 'right')}
             ${th('起標日')}${th('截標日')}${th('追蹤', 'center')}
             ${th('得標者/狀態')}${th('付款')}${th('取貨')}
@@ -455,6 +554,13 @@
       el.addEventListener('click', () => {
         const row = indexedData[el.dataset.idx];
         if (row) showPhotoModal(row.Name || '未命名', row.Photos || []);
+      });
+    });
+
+    body.querySelectorAll('.tm-faq-btn').forEach(el => {
+      el.addEventListener('click', () => {
+        const row = indexedData[el.dataset.idx];
+        if (row) showFAQModal(row.Name || '未命名', faqsByProductID[row.ID] || []);
       });
     });
 
@@ -574,8 +680,13 @@
     statusEl.textContent = '查詢中...';
     setFeatureBtnsEnabled(false);
     products = [];
+    faqsByProductID = {};
     try {
-      const raw = await app.getProducts(start, end);
+      const [raw, faqs] = await Promise.all([app.getProducts(start, end), app.getFAQs()]);
+      faqs.forEach(f => {
+        if (!faqsByProductID[f.ProductID]) faqsByProductID[f.ProductID] = [];
+        faqsByProductID[f.ProductID].push(f);
+      });
       statusEl.textContent = `共 ${raw.length} 筆，補充競標資料中...`;
       renderTable(raw);
       products = await app.enrichWithBids(raw);
@@ -954,7 +1065,9 @@
     const close = () => ovl.remove();
     ovl.querySelector('#tm-mi-close').onclick = close;
     ovl.querySelector('#tm-mi-cancel').onclick = close;
-    ovl.addEventListener('click', e => { if (e.target === ovl) close(); });
+    let ovlMousedown = false;
+    ovl.addEventListener('mousedown', e => { ovlMousedown = e.target === ovl; });
+    ovl.addEventListener('click', e => { if (e.target === ovl && ovlMousedown) close(); });
     const updateCount = () => {
       const n = ovl.querySelectorAll('.tm-multi-chk:checked').length;
       ovl.querySelector('#tm-mi-count').textContent = `已選 ${n} 筆`;
@@ -1051,7 +1164,9 @@
     const close = () => ovl.remove();
     ovl.querySelector('#tm-import-close').onclick = close;
     ovl.querySelector('#tm-import-cancel').onclick = close;
-    ovl.addEventListener('click', e => { if (e.target === ovl) close(); });
+    let ovlMousedown = false;
+    ovl.addEventListener('mousedown', e => { ovlMousedown = e.target === ovl; });
+    ovl.addEventListener('click', e => { if (e.target === ovl && ovlMousedown) close(); });
     ovl.querySelector('#tm-import-override').onchange = e => {
       ovl.querySelector('#tm-import-date-opts').style.display = e.target.checked ? 'block' : 'none';
     };
