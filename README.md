@@ -2,7 +2,7 @@
 
 一個專為「新北市再生家具拍賣網」管理員設計的專業級 Chrome 擴充功能，提供自動化上架、競標監控、聯絡人同步與高效資料管理功能。
 
-![Version](https://img.shields.io/badge/version-1.1.1-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.3-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Chrome%20|%20Edge-lightgrey.svg)
 ![Manifest](https://img.shields.io/badge/manifest-V3-orange.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -177,7 +177,14 @@ setTimeout('fn()', 1000);       // ❌
 
 ## 🔄 版本更新歷史
 
-### v1.1.1 (Current - 2026/04)
+### v1.1.3 (Current - 2026/04)
+- ✅ **取貨單列印**：在得標者分組標頭新增「🖨 取貨單」按鈕。
+  - 點擊後開啟新分頁，列出該得標者所有未取貨商品（含未入帳付款、排除棄標）。
+  - 列印頁顯示商品圖片、名稱、得標金額，底部附領貨人簽名欄，供倉管找貨與得標者簽收使用。
+  - 等待圖片完整載入後才觸發列印預覽，確保圖片不缺失。
+  - 商品依 AutoID 降冪排列（最新商品在上）。
+
+### v1.1.1 (2026/04)
 - 🐛 **聯絡人編輯**：修正得標者聯絡資訊無法清空存檔的問題。
   - 編輯模式下允許三欄全空存檔（清除資料）；新增模式維持至少填一欄的限制。
   - 修正 `sheetSync.updateContact` 中空字串不會傳送至後端與本地快取的問題。
