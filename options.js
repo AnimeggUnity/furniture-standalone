@@ -382,6 +382,61 @@
     URL.revokeObjectURL(url);
   }
 
+  // ─── 取貨單列印 ───────────────────────────────────────────────
+  function printPickupSheet(winnerLabel, items) {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
+    const rows = items.map((r, i) => {
+      const photo = r.Photos?.[0]?.Photo;
+      const imgSrc = photo ? (photo.startsWith('http') ? photo : BASE + photo) : '';
+      const imgHTML = imgSrc
+        ? `<img src="${imgSrc}" style="width:100px;height:80px;object-fit:cover;border-radius:4px;">`
+        : '<span style="color:#ccc;font-size:12px;">無圖</span>';
+      const price = r.Payment?.TotalAmount || r.BidPrice || r.InitPrice || 0;
+      return `<tr>
+        <td style="text-align:center;padding:8px;border:1px solid #ddd;">${i+1}</td>
+        <td style="padding:8px;border:1px solid #ddd;text-align:center;">${imgHTML}</td>
+        <td style="padding:8px;border:1px solid #ddd;font-size:14px;">${r.Name || '未命名'}</td>
+        <td style="padding:8px;border:1px solid #ddd;text-align:right;font-size:14px;">$${Number(price).toLocaleString()}</td>
+      </tr>`;
+    }).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>取貨單 - ${winnerLabel}</title>
+<style>
+  body{font-family:Arial,sans-serif;padding:24px;color:#000;}
+  h2{margin:0 0 4px;font-size:20px;}
+  .meta{font-size:13px;color:#555;margin-bottom:16px;}
+  table{width:100%;border-collapse:collapse;}
+  th{background:#f0f0f0;padding:8px;border:1px solid #ddd;font-size:13px;text-align:center;}
+  .sign-section{margin-top:40px;display:flex;justify-content:flex-end;}
+  .sign-box{border:1px solid #999;width:220px;padding:12px 16px;font-size:13px;}
+  .sign-label{color:#555;margin-bottom:40px;}
+  .sign-line{border-bottom:1px solid #999;margin-top:4px;}
+  @media print{body{padding:12px;}}
+</style></head><body>
+<h2>取貨清單</h2>
+<div class="meta">得標者：${winnerLabel}　|　日期：${dateStr}　|　共 ${items.length} 件</div>
+<table>
+  <thead><tr>
+    <th style="width:40px;">#</th>
+    <th style="width:120px;">圖片</th>
+    <th>商品名稱</th>
+    <th style="width:100px;">得標金額</th>
+  </tr></thead>
+  <tbody>${rows || '<tr><td colspan="4" style="padding:20px;text-align:center;color:#999;border:1px solid #ddd;">無已付款未取貨商品</td></tr>'}</tbody>
+</table>
+<div class="sign-section">
+  <div class="sign-box">
+    <div class="sign-label">領貨人簽名</div>
+    <div class="sign-line"></div>
+  </div>
+</div>
+</body></html>`;
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+    win.onload = () => win.print();
+  }
+
   // ─── 得標者分組排序 ────────────────────────────────────────────
   function sortByWinnerFn(items) {
     return items.sort((a, b) => {
@@ -495,7 +550,10 @@
           const lbl = isW
             ? `<span style="font-size:13px;color:#1a5276;">${getGroupLabel(row)}</span>`
             : `<span style="color:#555;">${getGroupLabel(row)}</span>`;
-          groupHeader = `<tr class="tm-group-hdr" style="background:${bg};border-left:4px solid ${ac};"><td colspan="14" style="padding:6px 10px;font-size:12px;font-weight:bold;letter-spacing:.5px;">${lbl}${contactHTML}${editBtnHTML}</td></tr>`;
+          const printBtnHTML = isW
+            ? `<button class="tm-print-pickup-btn" data-winnerid="${row.WinnerID}" data-winnerlabel="${encodeURIComponent(getGroupLabel(row).replace('得標者：',''))}" style="margin-left:8px;padding:1px 7px;font-size:10px;border:1px solid #e67e22;background:#fff;color:#e67e22;border-radius:3px;cursor:pointer;font-weight:normal;vertical-align:middle;">🖨 取貨單</button>`
+            : '';
+          groupHeader = `<tr class="tm-group-hdr" style="background:${bg};border-left:4px solid ${ac};"><td colspan="14" style="padding:6px 10px;font-size:12px;font-weight:bold;letter-spacing:.5px;">${lbl}${contactHTML}${editBtnHTML}${printBtnHTML}</td></tr>`;
         }
       }
       const rowFaqs = faqsByProductID[row.ID] || [];
@@ -700,6 +758,18 @@
       el.addEventListener('click', () => {
         const account = el.dataset.account;
         showEditContactModal(account, app.SheetSync?.getContact(account) || null);
+      });
+    });
+
+    body.querySelectorAll('.tm-print-pickup-btn').forEach(el => {
+      el.addEventListener('click', () => {
+        const winnerID = el.dataset.winnerid;
+        const winnerLabel = decodeURIComponent(el.dataset.winnerlabel);
+        const now = new Date();
+        const isAbandoned = r => !r.IsPay && r.Payment?.MaxDate && new Date(r.Payment.MaxDate) < now;
+        const items = products.filter(r => String(r.WinnerID) === String(winnerID) && !r.IsGet && !isAbandoned(r))
+          .sort((a, b) => Number(b.AutoID) - Number(a.AutoID));
+        printPickupSheet(winnerLabel, items);
       });
     });
   }
