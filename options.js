@@ -428,6 +428,10 @@
   <div class="sign-box">
     <div class="sign-label">領貨人簽名</div>
     <div class="sign-line"></div>
+    <div class="sign-label" style="margin-top:20px;">聯絡電話</div>
+    <div class="sign-line"></div>
+    <div class="sign-label" style="margin-top:20px;">領貨日期</div>
+    <div class="sign-line"></div>
   </div>
 </div>
 </body></html>`;
@@ -574,13 +578,17 @@
       const faqCell = rowFaqs.length === 0
         ? '<span style="color:#ccc;">—</span>'
         : `<button class="tm-faq-btn" data-idx="${row.AutoID}" style="padding:2px 8px;font-size:11px;border:1px solid ${unanswered ? '#e74c3c' : '#27ae60'};background:#fff;color:${unanswered ? '#e74c3c' : '#27ae60'};border-radius:3px;cursor:pointer;">${rowFaqs.length}則${unanswered ? ` (${unanswered}未回)` : ''}</button>`;
+      const isWon      = !!row.WinnerID;
+      const isFinished = !!(row.IsFinish || isWon);
+      const editBtn      = isWon      ? `<button style="padding:2px 8px;font-size:11px;border:1px solid transparent;background:transparent;visibility:hidden;">✏</button>` : `<button class="tm-edit-btn" data-idx="${row.AutoID}" title="編輯" style="padding:2px 8px;font-size:11px;border:1px solid #e67e22;background:#fff;color:#e67e22;border-radius:3px;cursor:pointer;">✏</button>`;
+      const closeNowBtn  = isFinished ? `<button style="padding:2px 7px;font-size:11px;border:1px solid transparent;background:transparent;margin-left:3px;visibility:hidden;">⏹</button>` : `<button class="tm-close-now-btn" data-idx="${row.AutoID}" title="即時結標" style="padding:2px 7px;font-size:11px;border:1px solid #7f8c8d;background:#fff;color:#7f8c8d;border-radius:3px;cursor:pointer;margin-left:3px;">⏹</button>`;
       return groupHeader + `<tr>
         <td style="white-space:nowrap;">
-          <button class="tm-edit-btn" data-idx="${row.AutoID}" title="編輯" style="padding:2px 8px;font-size:11px;border:1px solid #e67e22;background:#fff;color:#e67e22;border-radius:3px;cursor:pointer;">✏</button>
+          ${editBtn}
           <button class="tm-clone-btn" data-idx="${row.AutoID}" title="複製建立新商品" style="padding:2px 7px;font-size:11px;border:1px solid #27ae60;background:#fff;color:#27ae60;border-radius:3px;cursor:pointer;margin-left:3px;">⧉</button>
           <button class="tm-pack-btn" data-idx="${row.AutoID}" title="打包匯出" style="padding:2px 7px;font-size:11px;border:1px solid #8e44ad;background:#fff;color:#8e44ad;border-radius:3px;cursor:pointer;margin-left:3px;">↓</button>
           <button class="tm-del-btn" data-idx="${row.AutoID}" title="刪除" style="padding:2px 7px;font-size:11px;border:1px solid #e74c3c;background:#fff;color:#e74c3c;border-radius:3px;cursor:pointer;margin-left:3px;">🗑</button>
-          <button class="tm-close-now-btn" data-idx="${row.AutoID}" title="即時結標" style="padding:2px 7px;font-size:11px;border:1px solid #7f8c8d;background:#fff;color:#7f8c8d;border-radius:3px;cursor:pointer;margin-left:3px;">⏹</button>
+          ${closeNowBtn}
         </td>
         <td>${row.AutoID}</td>
         <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${row.Name || ''}">${row.Name || '未命名'}</td>
@@ -954,8 +962,8 @@
     [
       ['Files.php',    () => { const u = new URL(ls('furniture-helper-webhook-url', DEFAULT_WEBHOOK)); window.open(`${u.protocol}//${u.host}${u.pathname}`, '_blank'); }],
       ['聯絡人管理',   () => window.open(ls('furniture-helper-contacts-api-url', DEFAULT_CONTACTS), '_blank')],
-      ['官方發布網頁', () => window.open('https://580.blias.com/install/', '_blank')],
-      ['GitHub',       () => window.open('https://github.com/AnimeggUnity/furniture-helper', '_blank')],
+      ['介紹網站',     () => window.open('https://animeggunity.github.io/furniture-standalone/', '_blank')],
+      ['GitHub',       () => window.open('https://github.com/AnimeggUnity/furniture-standalone', '_blank')],
     ].forEach(([label, fn]) => {
       const btn = document.createElement('button');
       btn.textContent = label;
