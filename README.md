@@ -2,7 +2,7 @@
 
 一個專為「新北市再生家具拍賣網」管理員設計的專業級 Chrome 擴充功能，提供自動化上架、競標監控、聯絡人同步與高效資料管理功能。
 
-![Version](https://img.shields.io/badge/version-1.1.3-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.4-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Chrome%20|%20Edge-lightgrey.svg)
 ![Manifest](https://img.shields.io/badge/manifest-V3-orange.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -177,7 +177,14 @@ setTimeout('fn()', 1000);       // ❌
 
 ## 🔄 版本更新歷史
 
-### v1.1.3 (Current - 2026/04)
+### v1.1.4 (Current - 2026/04)
+- ✅ **得標者分組智慧排序**：得標者群組依三層優先級排列。
+  - 第一層：有未取貨商品（非棄標）→ 最優先顯示。
+  - 第二層：無未取貨但有未付款商品（非棄標）→ 次之。
+  - 第三層：全數取完 → 排最後。
+  - 同層內維持姓名字母排序。
+
+### v1.1.3 (2026/04)
 - ✅ **取貨單列印**：在得標者分組標頭新增「🖨 取貨單」按鈕。
   - 點擊後開啟新分頁，列出該得標者所有未取貨商品（含未入帳付款、排除棄標）。
   - 列印頁顯示商品圖片、名稱、得標金額，底部附領貨人簽名欄，供倉管找貨與得標者簽收使用。

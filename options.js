@@ -439,6 +439,17 @@
 
   // ─── 得標者分組排序 ────────────────────────────────────────────
   function sortByWinnerFn(items) {
+    const now = new Date();
+    const isAbandoned = r => !r.IsPay && r.Payment?.MaxDate && new Date(r.Payment.MaxDate) < now;
+    const winnerPriority = new Map();
+    for (const r of items) {
+      if (!r.WinnerID) continue;
+      const id = String(r.WinnerID);
+      const cur = winnerPriority.get(id) ?? 3;
+      if (!r.IsGet && !isAbandoned(r))            winnerPriority.set(id, 1); // 得標未取
+      else if (!r.IsPay && !isAbandoned(r) && cur > 1) winnerPriority.set(id, 2); // 已得標未付
+      else if (cur === undefined)                  winnerPriority.set(id, 3); // 取完
+    }
     return items.sort((a, b) => {
       const aW = !!a.WinnerID, bW = !!b.WinnerID;
       const aB = !aW && (a.HasBids || a.Bidder);
@@ -449,6 +460,8 @@
       if (!aB && bB && !aW) return 1;
       if (aW && bW) {
         const as = String(a.WinnerID), bs = String(b.WinnerID);
+        const ap = winnerPriority.get(as) ?? 3, bp = winnerPriority.get(bs) ?? 3;
+        if (ap !== bp) return ap - bp;
         if (as === bs) return Number(a.AutoID) - Number(b.AutoID);
         return (a.NickName || as).localeCompare(b.NickName || bs, 'zh-TW');
       }
