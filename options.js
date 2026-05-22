@@ -9,6 +9,7 @@
   let activeFilter = { conditions: [], logic: 'AND' };
   let qbInstance = null;
   let isSortedByWinner = false;
+  let isTrackSorted = false;
   let startInputEl = null;
   let endInputEl = null;
 
@@ -527,7 +528,9 @@
     const hasFaq = r => (faqsByProductID[r.ID]?.length || 0) > 0;
     const sorted = (isSortedByWinner
       ? sortByWinnerFn([...data])
-      : [...data].sort((a, b) => Number(b.AutoID) - Number(a.AutoID))
+      : isTrackSorted
+        ? [...data].filter(r => !r.WinnerID).sort((a, b) => (b.TrackCount || 0) - (a.TrackCount || 0))
+        : [...data].sort((a, b) => Number(b.AutoID) - Number(a.AutoID))
     ).sort((a, b) => hasFaq(b) - hasFaq(a));
 
     const getGroupKey   = r => r.WinnerID ? `w_${r.WinnerID}` : (r.HasBids || r.Bidder) ? 'bidding' : 'nobids';
@@ -606,8 +609,8 @@
       </tr>`;
     }).join('');
 
-    const th = (label, align = 'left') =>
-      `<th style="padding:8px 10px;text-align:${align};white-space:nowrap;">${label}</th>`;
+    const th = (label, align = 'left', minWidth = '') =>
+      `<th style="padding:8px 10px;text-align:${align};white-space:nowrap;${minWidth ? `min-width:${minWidth};` : ''}">${label}</th>`;
 
     body.innerHTML = `
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -616,7 +619,7 @@
             ${th('')}${th('編號')}${th('名稱')}${th('')}${th('問答')}${th('類別')}
             ${th('起標價', 'right')}${th('競標價', 'right')}
             ${th('起標日')}${th('截標日')}${th('追蹤', 'center')}
-            ${th('得標者/狀態')}${th('付款')}${th('取貨')}
+            ${th('得標者/狀態', 'left', '120px')}${th('付款', 'left', '65px')}${th('取貨', 'left', '65px')}
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -1341,6 +1344,12 @@
       if (month >= 8 && month <= 10)  return 'Q3（8–10月）';
       return 'Q4（11–2月）';
     };
+    const quarterMonthOrder = {
+      'Q1（3–4月）':  [3, 4],
+      'Q2（5–7月）':  [5, 6, 7],
+      'Q3（8–10月）': [8, 9, 10],
+      'Q4（11–2月）': [11, 12, 1, 2],
+    };
     const buildQuarterMap = dateField => {
       const map = {};
       data.forEach(row => {
@@ -1350,12 +1359,19 @@
         const fiscalYear = calMonth <= 2 ? calYear - 1 : calYear;
         const quarter = getQuarter(calMonth);
         const qKey = `${fiscalYear}|${quarter}`;
-        if (!map[qKey]) map[qKey] = { year: String(fiscalYear), quarter, total: 0, won: 0, paid: 0, got: 0, revenue: 0 };
+        if (!map[qKey]) map[qKey] = { year: String(fiscalYear), quarter, total: 0, won: 0, paid: 0, got: 0, revenue: 0, months: {} };
         const q = map[qKey];
         q.total++;
         if (row.WinnerID) q.won++;
         if (row.IsPay) { q.paid++; q.revenue += row.Payment?.TotalAmount || 0; }
         if (row.IsGet) q.got++;
+        const mKey = `${calYear}-${String(calMonth).padStart(2, '0')}`;
+        if (!q.months[mKey]) q.months[mKey] = { total: 0, won: 0, paid: 0, got: 0, revenue: 0 };
+        const m = q.months[mKey];
+        m.total++;
+        if (row.WinnerID) m.won++;
+        if (row.IsPay) { m.paid++; m.revenue += row.Payment?.TotalAmount || 0; }
+        if (row.IsGet) m.got++;
       });
       return map;
     };
@@ -1364,14 +1380,45 @@
       const years = [...new Set(Object.values(qMap).map(q => q.year))].sort((a, b) => b - a);
       if (!years.length) return '<p style="color:#aaa;font-size:12px;">無資料</p>';
       return years.map(year => {
-        const quarters = quarterOrder.map(qLabel => qMap[`${year}|${qLabel}`] || { quarter: qLabel, total: 0, won: 0, paid: 0, got: 0, revenue: 0 });
+        const quarters = quarterOrder.map(qLabel => qMap[`${year}|${qLabel}`] || { quarter: qLabel, total: 0, won: 0, paid: 0, got: 0, revenue: 0, months: {} });
         const yearTotal   = quarters.reduce((s, q) => s + q.total, 0);
         const yearRevenue = quarters.reduce((s, q) => s + q.revenue, 0);
-        const qCells = quarters.map(q => `
-          <td style="padding:10px 14px;border:1px solid #e0e0e0;vertical-align:top;background:#fff;min-width:120px;">
+        const qCells = quarters.map(q => {
+          const monthRows = quarterMonthOrder[q.quarter].map(mn => {
+            const calY = mn <= 2 ? Number(year) + 1 : Number(year);
+            const mKey = `${calY}-${String(mn).padStart(2, '0')}`;
+            const m = q.months[mKey];
+            if (!m) return '';
+            return `<tr>
+              <td style="padding:3px 4px;color:#555;white-space:nowrap;">${mn}月</td>
+              <td style="padding:3px 4px;text-align:right;font-weight:600;color:#2c3e50;">${m.total}</td>
+              <td style="padding:3px 4px;text-align:right;color:#888;">${m.won}</td>
+              <td style="padding:3px 4px;text-align:right;color:#888;">${m.paid}</td>
+              <td style="padding:3px 4px;text-align:right;color:#888;">${m.got}</td>
+              <td style="padding:3px 4px;text-align:right;color:#27ae60;white-space:nowrap;">$${m.revenue.toLocaleString()}</td>
+            </tr>`;
+          }).join('');
+          const monthDetail = monthRows ? `
+            <div style="margin-top:8px;border-top:1px solid #e8e8e8;padding-top:6px;">
+              <table style="width:100%;border-collapse:collapse;font-size:11px;">
+                <thead><tr style="color:#aaa;">
+                  <th style="padding:1px 4px;text-align:left;font-weight:normal;"></th>
+                  <th style="padding:1px 4px;text-align:right;font-weight:normal;">筆數</th>
+                  <th style="padding:1px 4px;text-align:right;font-weight:normal;">得標</th>
+                  <th style="padding:1px 4px;text-align:right;font-weight:normal;">付款</th>
+                  <th style="padding:1px 4px;text-align:right;font-weight:normal;">取貨</th>
+                  <th style="padding:1px 4px;text-align:right;font-weight:normal;">收入</th>
+                </tr></thead>
+                <tbody>${monthRows}</tbody>
+              </table>
+            </div>` : '';
+          return `
+          <td style="padding:10px 14px;border:1px solid #e0e0e0;vertical-align:top;background:#fff;min-width:140px;">
             <div style="font-size:20px;font-weight:bold;color:#2c3e50;">${q.total}<span style="font-size:11px;font-weight:normal;color:#aaa;"> 筆</span></div>
             <div style="font-size:11px;color:#555;margin-top:4px;line-height:1.8;">得標 ${q.won}　付款 ${q.paid}　取貨 ${q.got}<br><span style="color:#27ae60;font-weight:600;">$${q.revenue.toLocaleString()}</span></div>
-          </td>`).join('');
+            ${monthDetail}
+          </td>`;
+        }).join('');
         return `<tr style="background:#f0f2f5;">
           <td style="padding:10px 14px;border:1px solid #e0e0e0;font-weight:bold;font-size:13px;color:#2c3e50;white-space:nowrap;vertical-align:middle;">
             ${year} 年<br><span style="font-size:11px;font-weight:normal;color:#888;">${yearTotal} 筆 / $${yearRevenue.toLocaleString()}</span>
@@ -1634,6 +1681,11 @@
       isSortedByWinner = !isSortedByWinner;
       winnerSortBtn.style.background = isSortedByWinner ? '#2c3e50' : '#7f8c8d';
       winnerSortBtn.textContent = isSortedByWinner ? '得標者分組 ✓' : '得標者分組';
+      if (isSortedByWinner) {
+        isTrackSorted = false;
+        trackSortBtn.style.background = '#7f8c8d';
+        trackSortBtn.textContent = '追蹤數排序';
+      }
       renderTable(getDisplayData());
       if (isSortedByWinner && app.SheetSync && !app.SheetSync.isSynced()) {
         statusEl.textContent = '同步聯絡人中...';
@@ -1647,11 +1699,29 @@
     };
     featureBtns.push(winnerSortBtn);
 
+    const trackSortBtn = document.createElement('button');
+    trackSortBtn.textContent = '追蹤數排序';
+    trackSortBtn.disabled = true;
+    trackSortBtn.style.cssText = 'padding:5px 16px;background:#7f8c8d;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;opacity:.4;transition:all .15s;';
+    trackSortBtn.onclick = () => {
+      isTrackSorted = !isTrackSorted;
+      trackSortBtn.style.background = isTrackSorted ? '#e67e22' : '#7f8c8d';
+      trackSortBtn.textContent = isTrackSorted ? '追蹤數排序 ✓' : '追蹤數排序';
+      if (isTrackSorted) {
+        isSortedByWinner = false;
+        winnerSortBtn.style.background = '#7f8c8d';
+        winnerSortBtn.textContent = '得標者分組';
+      }
+      renderTable(getDisplayData());
+    };
+    featureBtns.push(trackSortBtn);
+
     container.append(
       mkViewBtn('年度統計', '#2980b9', handleStats),
       mkViewBtn('列印表格', '#27ae60', handlePrint),
-      mkViewBtn('匯出CSV',  '#16a085', () => handleExport()),
+      mkViewBtn('',  '#16a085', () => handleExport()),
       winnerSortBtn,
+      trackSortBtn,
     );
   }
 
@@ -1726,7 +1796,7 @@
     const bodyEl = document.createElement('div');
     bodyEl.className = 'tm-db-body';
     bodyEl.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column;';
-    bodyEl.innerHTML = '<div id="tm-db-main" style="flex:1;overflow-y:auto;padding:20px;"><p style="color:#999;font-size:13px;">填入日期後點「查詢」取得資料，再使用上方功能按鈕。</p></div>';
+    bodyEl.innerHTML = '<div id="tm-db-main" style="flex:1;overflow-y:auto;padding:20px;scrollbar-gutter:stable;"><p style="color:#999;font-size:13px;">填入日期後點「查詢」取得資料，再使用上方功能按鈕。</p></div>';
 
     document.body.append(buildHeader(), buildToolbar(dates), featureBarEl, qbPanel, batchPanel, viewPanel, bodyEl);
   }
