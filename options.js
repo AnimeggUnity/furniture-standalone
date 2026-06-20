@@ -117,11 +117,13 @@
   }
 
   // ─── 編輯商品 Modal ────────────────────────────────────────────
-  function showEditModal(row, onSaved) {
+  function showEditModal(row, onSaved, readOnly = false) {
     document.getElementById('tm-edit-modal')?.remove();
     const CATEGORIES = app.CATEGORY_MAPPING;
     const toDatetimeLocal = s => s ? s.slice(0, 16).replace(' ', 'T') : '';
     const toAPIDatetime   = s => s ? s.replace('T', ' ') + ':00' : '';
+    const dis = readOnly ? ' disabled' : '';
+    const fieldStyle = `width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #ccc;border-radius:4px;${readOnly ? 'background:#f5f5f5;color:#555;' : ''}`;
     const ovl = document.createElement('div');
     ovl.id = 'tm-edit-modal';
     ovl.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;display:flex;align-items:center;justify-content:center;';
@@ -130,44 +132,48 @@
     const catOptions = Object.entries(CATEGORIES)
       .map(([name, id]) => `<option value="${id}" ${row.CategoryID === id ? 'selected' : ''}>${name}</option>`)
       .join('');
+    const titleText = readOnly ? `檢視商品 #${row.AutoID}（唯讀）` : `編輯商品 #${row.AutoID}`;
+    const footerHTML = readOnly
+      ? `<button id="tm-edit-cancel" style="padding:7px 20px;border:1px solid #ccc;background:#fff;border-radius:4px;cursor:pointer;">關閉</button>`
+      : `<button id="tm-edit-cancel" style="padding:7px 20px;border:1px solid #ccc;background:#fff;border-radius:4px;cursor:pointer;">取消</button>
+         <button id="tm-edit-save" style="padding:7px 20px;background:#2980b9;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">儲存</button>`;
     modal.innerHTML = `
       <div style="background:#2c3e50;color:#fff;padding:14px 20px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-weight:bold;font-size:14px;">編輯商品 #${row.AutoID}</span>
+        <span style="font-weight:bold;font-size:14px;">${titleText}</span>
         <span id="tm-edit-close" style="cursor:pointer;font-size:18px;opacity:.7;">×</span>
       </div>
       <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         <div style="grid-column:1/-1;"><label style="display:block;margin-bottom:4px;color:#555;">品名 *</label>
-          <input id="ef-name" value="${row.Name || ''}" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #ccc;border-radius:4px;"></div>
+          <input id="ef-name" value="${row.Name || ''}"${dis} style="${fieldStyle}"></div>
         <div><label style="display:block;margin-bottom:4px;color:#555;">類別 *</label>
-          <select id="ef-cat" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;">${catOptions}</select></div>
+          <select id="ef-cat"${dis} style="${fieldStyle}">${catOptions}</select></div>
         <div><label style="display:block;margin-bottom:4px;color:#555;">起標價格 *</label>
-          <input id="ef-init" type="number" value="${row.InitPrice || 0}" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #ccc;border-radius:4px;"></div>
+          <input id="ef-init" type="number" value="${row.InitPrice || 0}"${dis} style="${fieldStyle}"></div>
         <div><label style="display:block;margin-bottom:4px;color:#555;">拍賣期間(起)</label>
-          <input id="ef-start" type="datetime-local" value="${toDatetimeLocal(row.StartDate)}" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #ccc;border-radius:4px;"></div>
+          <input id="ef-start" type="datetime-local" value="${toDatetimeLocal(row.StartDate)}"${dis} style="${fieldStyle}"></div>
         <div><label style="display:block;margin-bottom:4px;color:#555;">拍賣期間(迄)</label>
-          <input id="ef-end" type="datetime-local" value="${toDatetimeLocal(row.EndDate)}" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #ccc;border-radius:4px;"></div>
+          <input id="ef-end" type="datetime-local" value="${toDatetimeLocal(row.EndDate)}"${dis} style="${fieldStyle}"></div>
         <div><label style="display:block;margin-bottom:4px;color:#555;">長</label>
-          <input id="ef-len" type="number" value="${row.Length || 0}" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #ccc;border-radius:4px;"></div>
+          <input id="ef-len" type="number" value="${row.Length || 0}"${dis} style="${fieldStyle}"></div>
         <div><label style="display:block;margin-bottom:4px;color:#555;">寬</label>
-          <input id="ef-wid" type="number" value="${row.Width || 0}" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #ccc;border-radius:4px;"></div>
+          <input id="ef-wid" type="number" value="${row.Width || 0}"${dis} style="${fieldStyle}"></div>
         <div><label style="display:block;margin-bottom:4px;color:#555;">高</label>
-          <input id="ef-hei" type="number" value="${row.Height || 0}" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #ccc;border-radius:4px;"></div>
+          <input id="ef-hei" type="number" value="${row.Height || 0}"${dis} style="${fieldStyle}"></div>
         <div style="grid-column:1/-1;"><label style="display:block;margin-bottom:4px;color:#555;">交貨地點</label>
-          <input id="ef-addr" value="${row.DeliveryAddress || ''}" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #ccc;border-radius:4px;"></div>
+          <input id="ef-addr" value="${row.DeliveryAddress || ''}"${dis} style="${fieldStyle}"></div>
         <div style="grid-column:1/-1;"><label style="display:block;margin-bottom:4px;color:#555;">產品描述</label>
-          <textarea id="ef-desc" rows="6" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #ccc;border-radius:4px;resize:vertical;">${row.Description || ''}</textarea></div>
+          <textarea id="ef-desc" rows="6"${dis} style="${fieldStyle}resize:vertical;">${row.Description || ''}</textarea></div>
         <div style="grid-column:1/-1;">
           <label style="display:block;margin-bottom:8px;color:#555;">圖片</label>
           <div id="ef-photo-grid" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;"></div>
-          <label style="display:inline-block;padding:6px 14px;background:#2980b9;color:#fff;border-radius:4px;cursor:pointer;font-size:12px;">
+          ${readOnly ? '' : `<label style="display:inline-block;padding:6px 14px;background:#2980b9;color:#fff;border-radius:4px;cursor:pointer;font-size:12px;">
             + 上傳圖片<input id="ef-upload" type="file" accept="image/jpeg,image/png" multiple style="display:none;">
           </label>
-          <span id="ef-upload-status" style="margin-left:10px;font-size:12px;color:#888;"></span>
+          <span id="ef-upload-status" style="margin-left:10px;font-size:12px;color:#888;"></span>`}
         </div>
       </div>
       <div style="padding:14px 20px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:10px;">
-        <button id="tm-edit-cancel" style="padding:7px 20px;border:1px solid #ccc;background:#fff;border-radius:4px;cursor:pointer;">取消</button>
-        <button id="tm-edit-save" style="padding:7px 20px;background:#2980b9;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">儲存</button>
+        ${footerHTML}
       </div>`;
     ovl.appendChild(modal);
     document.body.appendChild(ovl);
@@ -189,17 +195,20 @@
         const img = document.createElement('img');
         img.src = p.Photo;
         img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:4px;border:1px solid #ddd;';
-        const del = document.createElement('button');
-        del.textContent = '×';
-        del.style.cssText = 'position:absolute;top:2px;right:2px;width:20px;height:20px;background:rgba(231,76,60,.85);color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:14px;line-height:1;padding:0;';
-        del.onclick = () => { pendingPhotos.splice(idx, 1); renderPhotoGrid(); };
-        wrap.append(img, del);
+        wrap.append(img);
+        if (!readOnly) {
+          const del = document.createElement('button');
+          del.textContent = '×';
+          del.style.cssText = 'position:absolute;top:2px;right:2px;width:20px;height:20px;background:rgba(231,76,60,.85);color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:14px;line-height:1;padding:0;';
+          del.onclick = () => { pendingPhotos.splice(idx, 1); renderPhotoGrid(); };
+          wrap.append(del);
+        }
         grid.appendChild(wrap);
       });
     };
     renderPhotoGrid();
 
-    ovl.querySelector('#ef-upload').addEventListener('change', async e => {
+    if (!readOnly) ovl.querySelector('#ef-upload').addEventListener('change', async e => {
       const files = [...e.target.files];
       if (!files.length) return;
       const statusSpan = ovl.querySelector('#ef-upload-status');
@@ -218,7 +227,7 @@
       e.target.value = '';
     });
 
-    ovl.querySelector('#tm-edit-save').onclick = async () => {
+    if (!readOnly) ovl.querySelector('#tm-edit-save').onclick = async () => {
       const saveBtn = ovl.querySelector('#tm-edit-save');
       saveBtn.textContent = '儲存中...'; saveBtn.disabled = true;
       const payload = {
@@ -583,7 +592,7 @@
         : `<button class="tm-faq-btn" data-idx="${row.AutoID}" style="padding:2px 8px;font-size:11px;border:1px solid ${unanswered ? '#e74c3c' : '#27ae60'};background:#fff;color:${unanswered ? '#e74c3c' : '#27ae60'};border-radius:3px;cursor:pointer;">${rowFaqs.length}則${unanswered ? ` (${unanswered}未回)` : ''}</button>`;
       const isWon      = !!row.WinnerID;
       const isFinished = !!(row.IsFinish || isWon);
-      const editBtn      = isWon      ? `<button style="padding:2px 8px;font-size:11px;border:1px solid transparent;background:transparent;visibility:hidden;">✏</button>` : `<button class="tm-edit-btn" data-idx="${row.AutoID}" title="編輯" style="padding:2px 8px;font-size:11px;border:1px solid #e67e22;background:#fff;color:#e67e22;border-radius:3px;cursor:pointer;">✏</button>`;
+      const editBtn      = isWon      ? `<button class="tm-edit-btn-readonly" data-idx="${row.AutoID}" title="檢視（唯讀）" style="padding:2px 8px;font-size:11px;border:1px solid #95a5a6;background:#fff;color:#95a5a6;border-radius:3px;cursor:pointer;">✏</button>` : `<button class="tm-edit-btn" data-idx="${row.AutoID}" title="編輯" style="padding:2px 8px;font-size:11px;border:1px solid #e67e22;background:#fff;color:#e67e22;border-radius:3px;cursor:pointer;">✏</button>`;
       const closeNowBtn  = isFinished ? `<button style="padding:2px 7px;font-size:11px;border:1px solid transparent;background:transparent;margin-left:3px;visibility:hidden;">⏹</button>` : `<button class="tm-close-now-btn" data-idx="${row.AutoID}" title="即時結標" style="padding:2px 7px;font-size:11px;border:1px solid #7f8c8d;background:#fff;color:#7f8c8d;border-radius:3px;cursor:pointer;margin-left:3px;">⏹</button>`;
       return groupHeader + `<tr>
         <td style="white-space:nowrap;">
@@ -710,6 +719,14 @@
         showEditModal(row, () => {
           if (startInputEl && endInputEl) handleFetch(startInputEl, endInputEl);
         });
+      });
+    });
+
+    body.querySelectorAll('.tm-edit-btn-readonly').forEach(el => {
+      el.addEventListener('click', () => {
+        const row = indexedData[el.dataset.idx];
+        if (!row) return;
+        showEditModal(row, null, true);
       });
     });
 
