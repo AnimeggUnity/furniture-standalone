@@ -2,6 +2,28 @@
 ((app) => {
   const BASE = 'https://recycledstuff.ntpc.gov.tw';
 
+  // 圖片伺服器帶有 Cross-Origin-Resource-Policy，<img src> 直接跨域讀取會被瀏覽器擋下。
+  // 改用 fetch（擴充功能 host_permissions 可跨域）下載成 Blob，餵給 <img> 走本地網址。
+  const imgBlobCache = new Map();
+  function resolvePhotoUrl(photoUrl) {
+    return (photoUrl.startsWith('http') || photoUrl.startsWith('data:')) ? photoUrl : BASE + photoUrl;
+  }
+  async function setImgSrcSafe(imgEl, photoUrl) {
+    if (!photoUrl) return;
+    const targetUrl = resolvePhotoUrl(photoUrl);
+    if (imgBlobCache.has(targetUrl)) { imgEl.src = imgBlobCache.get(targetUrl); return; }
+    try {
+      const resp = await fetch(targetUrl);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const blobUrl = URL.createObjectURL(await resp.blob());
+      imgBlobCache.set(targetUrl, blobUrl);
+      imgEl.src = blobUrl;
+    } catch (e) {
+      console.warn('Safe image load failed, fallback to direct url:', e);
+      imgEl.src = targetUrl;
+    }
+  }
+
   let products = [];
   let faqsByProductID = {};
   let statusEl = null;
@@ -193,7 +215,7 @@
         const wrap = document.createElement('div');
         wrap.style.cssText = 'position:relative;width:100px;height:75px;';
         const img = document.createElement('img');
-        img.src = p.Photo;
+        setImgSrcSafe(img, p.Photo);
         img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:4px;border:1px solid #ddd;';
         wrap.append(img);
         if (!readOnly) {
@@ -273,8 +295,8 @@
     } else {
       photos.forEach(p => {
         const img = document.createElement('img');
-        img.src = p.Photo; img.loading = 'lazy';
-        img.onclick = () => window.open(p.Photo, '_blank');
+        setImgSrcSafe(img, p.Photo); img.loading = 'lazy';
+        img.onclick = () => window.open(resolvePhotoUrl(p.Photo), '_blank');
         grid.appendChild(img);
       });
     }
@@ -393,14 +415,25 @@
   }
 
   // ─── 取貨單列印 ───────────────────────────────────────────────
-  function printPickupSheet(winnerLabel, items) {
+  async function printPickupSheet(winnerLabel, items) {
     const today = new Date();
     const dateStr = `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
-    const rows = items.map((r, i) => {
+    const imgSrcs = await Promise.all(items.map(async r => {
       const photo = r.Photos?.[0]?.Photo;
-      const imgSrc = photo ? (photo.startsWith('http') ? photo : BASE + photo) : '';
-      const imgHTML = imgSrc
-        ? `<img src="${imgSrc}" style="width:100px;height:80px;object-fit:cover;border-radius:4px;">`
+      if (!photo) return '';
+      const targetUrl = resolvePhotoUrl(photo);
+      if (imgBlobCache.has(targetUrl)) return imgBlobCache.get(targetUrl);
+      try {
+        const resp = await fetch(targetUrl);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const blobUrl = URL.createObjectURL(await resp.blob());
+        imgBlobCache.set(targetUrl, blobUrl);
+        return blobUrl;
+      } catch { return targetUrl; }
+    }));
+    const rows = items.map((r, i) => {
+      const imgHTML = imgSrcs[i]
+        ? `<img src="${imgSrcs[i]}" style="width:100px;height:80px;object-fit:cover;border-radius:4px;">`
         : '<span style="color:#ccc;font-size:12px;">無圖</span>';
       const price = r.Payment?.TotalAmount || r.BidPrice || r.InitPrice || 0;
       return `<tr>
@@ -803,14 +836,14 @@
     });
 
     body.querySelectorAll('.tm-print-pickup-btn').forEach(el => {
-      el.addEventListener('click', () => {
+      el.addEventListener('click', async () => {
         const winnerID = el.dataset.winnerid;
         const winnerLabel = decodeURIComponent(el.dataset.winnerlabel);
         const now = new Date();
         const isAbandoned = r => !r.IsPay && r.Payment?.MaxDate && new Date(r.Payment.MaxDate) < now;
         const items = products.filter(r => String(r.WinnerID) === String(winnerID) && !r.IsGet && !isAbandoned(r))
           .sort((a, b) => Number(b.AutoID) - Number(a.AutoID));
-        printPickupSheet(winnerLabel, items);
+        await printPickupSheet(winnerLabel, items);
       });
     });
   }
@@ -1273,8 +1306,8 @@
     const modal = document.createElement('div');
     modal.style.cssText = 'background:#fff;border-radius:8px;width:540px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.3);font-size:13px;';
     const photos = data.Photos || [];
-    const photoHTML = photos.slice(0, 4).map(p =>
-      `<img src="${p.Photo}" style="width:80px;height:60px;object-fit:cover;border-radius:4px;border:1px solid #ddd;">`
+    const photoHTML = photos.slice(0, 4).map((p, i) =>
+      `<img class="tm-import-photo" data-idx="${i}" style="width:80px;height:60px;object-fit:cover;border-radius:4px;border:1px solid #ddd;">`
     ).join('') || '<span style="color:#aaa;">無圖片</span>';
     modal.innerHTML = `
       <div style="background:#2c3e50;color:#fff;padding:14px 20px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center;">
@@ -1309,6 +1342,7 @@
         </div>
       </div>`;
     ovl.appendChild(modal); document.body.appendChild(ovl);
+    ovl.querySelectorAll('.tm-import-photo').forEach(img => setImgSrcSafe(img, photos[Number(img.dataset.idx)].Photo));
     const close = () => ovl.remove();
     ovl.querySelector('#tm-import-close').onclick = close;
     ovl.querySelector('#tm-import-cancel').onclick = close;

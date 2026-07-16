@@ -1,37 +1,17 @@
 
 ((app) => {
   // 將圖片轉換為 Base64 的函數
+  // 圖片伺服器帶 Cross-Origin-Resource-Policy，new Image() 跨域讀取會被擋下，
+  // 改用 fetch（擴充功能 host_permissions 可跨域）取得原始檔案再轉 Base64。
   async function convertImageToBase64(imageUrl) {
+    const resp = await fetch(imageUrl);
+    if (!resp.ok) throw new Error(`圖片載入失敗: ${imageUrl} (HTTP ${resp.status})`);
+    const blob = await resp.blob();
     return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous'; // 處理跨域問題
-      
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          // 設定 canvas 尺寸
-          canvas.width = img.naturalWidth;
-          canvas.height = img.naturalHeight;
-          
-          // 繪製圖片到 canvas
-          ctx.drawImage(img, 0, 0);
-          
-          // 轉換為 Base64
-          const base64 = canvas.toDataURL('image/jpeg', 0.8); // 使用 JPEG 格式，品質 0.8
-          resolve(base64);
-        } catch (error) {
-          reject(new Error(`Canvas 轉換失敗: ${error.message}`));
-        }
-      };
-      
-      img.onerror = () => {
-        reject(new Error(`圖片載入失敗: ${imageUrl}`));
-      };
-      
-      // 設定圖片來源
-      img.src = imageUrl;
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error(`Base64 轉換失敗: ${imageUrl}`));
+      reader.readAsDataURL(blob);
     });
   }
 
