@@ -68,6 +68,14 @@
         { field: 'WinnerID',      op: 'isEmpty'         },
       ]
     },
+    '競標中可縮短（5天+）': {
+      logic: 'AND',
+      conditions: [
+        { field: '_daysUntilEnd', op: 'gt',  value: 5  },
+        { field: 'HasBids',       op: 'eq_true'         },
+        { field: 'WinnerID',      op: 'isEmpty'         },
+      ]
+    },
     '已得標未取貨': {
       logic: 'AND',
       conditions: [
