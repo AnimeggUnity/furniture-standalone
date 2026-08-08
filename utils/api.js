@@ -142,11 +142,15 @@
     return uploaded;
   }
 
-  async function updateProductEndDate(item, days = 7) {
+  function computeEndDate(days) {
     const today = new Date();
     const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + days);
     const pad = (n) => String(n).padStart(2, '0');
-    const newEndDate = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())} 00:00`;
+    return `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())} 00:00`;
+  }
+
+  async function updateProductEndDate(item, days = 7) {
+    const newEndDate = computeEndDate(days);
     const payload = { ...item, EndDate: newEndDate };
     console.log(`📅 刷新截標日: ${item.Name} (AutoID: ${item.AutoID}) → ${newEndDate}`);
     const response = await fetch(BASE + '/BidMgr/api/Product/UpdateProduct', {
@@ -157,6 +161,34 @@
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
+  }
+
+  /**
+   * 強制縮短規則：競標中且剩餘時間 > days 天的商品，截標日砍成「現在 + days 天」。
+   * 剩餘 ≤ days 天的不動——不變量是「有出價時剩餘時間不超過 days 天」，
+   * 砍過一次後剩餘時間必然 ≤ days 天，下次查詢自然不再符合條件，故不需額外記錄狀態。
+   */
+  async function applyForceShortenRule(products, days = 5) {
+    const thresholdMs = days * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const targets = products.filter(item =>
+      app.BID_STATUS_SYSTEM.determineState(item) === 'bidding' &&
+      item.EndDate &&
+      new Date(item.EndDate).getTime() - now > thresholdMs
+    );
+
+    let done = 0, failed = 0;
+    for (const item of targets) {
+      try {
+        await updateProductEndDate(item, days);
+        item.EndDate = computeEndDate(days);
+        done++;
+      } catch (e) {
+        console.error(`⏱️ 強制縮短失敗: ${item.Name} (AutoID: ${item.AutoID})`, e);
+        failed++;
+      }
+    }
+    return { done, failed };
   }
 
   async function closeProductNow(item) {
@@ -238,6 +270,7 @@
   app.deleteProductAPI = deleteProductAPI;
   app.uploadImagesWithCorrectAPI = uploadImagesWithCorrectAPI;
   app.updateProductEndDate = updateProductEndDate;
+  app.applyForceShortenRule = applyForceShortenRule;
   app.getProducts = getProducts;
   app.enrichWithBids = enrichWithBids;
   app.getFAQs = getFAQs;
