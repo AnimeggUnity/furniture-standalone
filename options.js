@@ -899,21 +899,6 @@
     if (startInputEl && endInputEl) handleFetch(startInputEl, endInputEl);
   }
 
-  // ─── 功能：強制縮短截標日（僅競標中且剩餘天數 > 門檻的商品）────────
-  async function handleForceShorten(btn) {
-    const targets = getDisplayData();
-    if (!targets.length) return;
-    const days = Math.max(1, parseInt(document.getElementById('tm-shorten-days')?.value || '5', 10));
-    if (!confirm(`確定要對目前 ${targets.length} 筆商品套用強制縮短規則？\n只有「競標中且剩餘時間 > ${days} 天」的商品會被改為 ${days} 天後截標，其餘不受影響。`)) return;
-    btn.textContent = '執行中...'; btn.disabled = true;
-    const { done, failed } = await app.applyForceShortenRule(targets, days);
-    btn.textContent = '執行'; btn.disabled = false;
-    statusEl.textContent = failed
-      ? `強制縮短完成：${done} 筆成功，${failed} 筆失敗`
-      : (done ? `已強制縮短 ${done} 筆截標日` : '沒有符合條件的商品（無需變動）');
-    renderTable(getDisplayData());
-  }
-
   // ─── 功能：批量刪除 ────────────────────────────────────────────
   async function handleBatchDelete(btn) {
     const targets = getDisplayData();
@@ -1694,19 +1679,6 @@
     daysLbl.style.cssText = 'font-size:12px;color:#888;';
     refreshRow.append(refreshBtn, daysInput, daysLbl);
     container.appendChild(refreshRow);
-
-    const shortenRow = mkActionRow('強制縮短截標日');
-    const shortenBtn = mkExecBtn('#c0392b');
-    shortenBtn.onclick = () => handleForceShorten(shortenBtn);
-    const shortenDaysInput = document.createElement('input');
-    shortenDaysInput.id = 'tm-shorten-days'; shortenDaysInput.type = 'number';
-    shortenDaysInput.value = '5'; shortenDaysInput.min = '1'; shortenDaysInput.max = '365';
-    shortenDaysInput.style.cssText = 'width:48px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;text-align:center;';
-    const shortenDaysLbl = document.createElement('span');
-    shortenDaysLbl.textContent = '天後截標（僅競標中且剩餘>此天數）';
-    shortenDaysLbl.style.cssText = 'font-size:12px;color:#888;';
-    shortenRow.append(shortenBtn, shortenDaysInput, shortenDaysLbl);
-    container.appendChild(shortenRow);
 
     const deleteRow = mkActionRow('批量刪除');
     const deleteBtn = mkExecBtn('#e74c3c');

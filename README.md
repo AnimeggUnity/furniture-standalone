@@ -2,7 +2,7 @@
 
 一個專為「新北市再生家具拍賣網」管理員設計的專業級 Chrome 擴充功能，提供自動化上架、競標監控、聯絡人同步與高效資料管理功能。
 
-![Version](https://img.shields.io/badge/version-1.1.5-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.4-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Chrome%20|%20Edge-lightgrey.svg)
 ![Manifest](https://img.shields.io/badge/manifest-V3-orange.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -40,7 +40,6 @@
 #### 1. 產品管理自動化 (Product Automation)
 - **快速上架系統**：繞過繁瑣表單，直接透過 `directSubmitToAPI` 送出 JSON 資料。
 - **批次刷新截標日**：一鍵將流標物件延長競標期（預設 +7 天），大幅減少重複勞動。
-- **強制縮短截標日** 🆕：手動按鈕觸發，僅對「競標中且剩餘時間 > 門檻天數（預設 5 天）」的商品生效，逼退標、加速成交。剩餘天數已低於門檻的商品不受影響；規則本身具自我限制特性（改過一次後剩餘時間必然 ≤ 門檻天數，不會重複觸發），無需額外記錄狀態。
 - **智慧類別映射**：自動將中文名稱轉換為系統內部的 `CategoryID`。
 
 #### 2. 強大圖片處理引擎 (Image Engine)
@@ -75,7 +74,6 @@
 - `uploadImage()`: 處理單張或多張圖片上傳。
 - `directSubmitToAPI()`: 處理商品新增。
 - `updateProductEndDate()`: 執行截標日更新。
-- `applyForceShortenRule()`: 強制縮短規則，篩出競標中且剩餘時間 > 門檻天數的商品並改為門檻天數後截標。
 - `enrichWithBids()`: 批量抓取競標記錄並整合進商品資料。
 
 #### `utils/sheetSync.js` - 資料同步層
@@ -179,13 +177,7 @@ setTimeout('fn()', 1000);       // ❌
 
 ## 🔄 版本更新歷史
 
-### v1.1.5 (Current - 2026/08)
-- ✅ **強制縮短截標日**：批次操作面板新增按鈕，只對「競標中且剩餘時間 > 門檻天數（預設 5 天）」的商品生效，改為門檻天數後截標，逼退標加速成交。
-  - 僅手動點擊觸發，查詢/統計等讀取流程不會順帶改動真實資料。
-  - 執行前彈出確認視窗，列出目前清單筆數與規則說明。
-  - 規則以「剩餘天數 > 門檻」為條件，不依賴額外的已處理記錄——改過一次後剩餘天數必然 ≤ 門檻，天然不會重複觸發。
-
-### v1.1.4 (2026/04)
+### v1.1.4 (Current - 2026/04)
 - ✅ **取貨單列印**：在得標者分組標頭新增「🖨 取貨單」按鈕。
   - 點擊後開啟新分頁，列出該得標者所有未取貨商品（含未入帳付款、排除棄標）。
   - 列印頁顯示商品圖片、名稱、得標金額，底部附領貨人簽名、聯絡電話、領貨日期填寫欄。
