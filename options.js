@@ -77,67 +77,6 @@
     });
   }
 
-  // ─── 編輯聯絡人 Modal ──────────────────────────────────────────
-  function showEditContactModal(account, contact) {
-    document.getElementById('tm-edit-contact-modal')?.remove();
-    const ovl = document.createElement('div');
-    ovl.id = 'tm-edit-contact-modal';
-    ovl.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10010;display:flex;align-items:center;justify-content:center;';
-    const dialog = document.createElement('div');
-    dialog.style.cssText = 'background:#fff;border-radius:8px;width:380px;box-shadow:0 8px 32px rgba(0,0,0,.3);font-size:13px;overflow:hidden;';
-    dialog.innerHTML = `
-      <div style="background:#2c3e50;color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-weight:bold;font-size:13px;">${contact ? '✏ 編輯聯絡資訊' : '➕ 補充聯絡資訊'}</span>
-        <span id="tm-ecc-close" style="cursor:pointer;font-size:16px;opacity:.7;">×</span>
-      </div>
-      <div style="padding:16px;">
-        <div style="margin-bottom:12px;color:#666;font-weight:bold;font-size:12px;">帳號：${account}</div>
-        <div style="margin-bottom:10px;">
-          <label style="display:block;margin-bottom:3px;color:#555;font-size:12px;">聯絡電話</label>
-          <input id="tm-ecc-phone" type="tel" value="${contact?.phone || ''}" placeholder="例: 02-12345678"
-            style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
-        </div>
-        <div style="margin-bottom:10px;">
-          <label style="display:block;margin-bottom:3px;color:#555;font-size:12px;">手機號碼</label>
-          <input id="tm-ecc-mobile" type="tel" value="${contact?.mobile || ''}" placeholder="例: 0912345678"
-            style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
-        </div>
-        <div style="margin-bottom:14px;">
-          <label style="display:block;margin-bottom:3px;color:#555;font-size:12px;">備註</label>
-          <textarea id="tm-ecc-note" rows="3" placeholder="例: 週末聯絡、偏好 Line..."
-            style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;resize:vertical;">${contact?.note || ''}</textarea>
-        </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;">
-          <button id="tm-ecc-cancel" style="padding:6px 14px;background:#7f8c8d;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">取消</button>
-          <button id="tm-ecc-save" style="padding:6px 14px;background:#2980b9;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;">💾 儲存</button>
-        </div>
-      </div>`;
-    ovl.appendChild(dialog);
-    document.body.appendChild(ovl);
-    const close = () => ovl.remove();
-    dialog.querySelector('#tm-ecc-close').onclick = close;
-    dialog.querySelector('#tm-ecc-cancel').onclick = close;
-    let ovlMousedown = false;
-    ovl.addEventListener('mousedown', e => { ovlMousedown = e.target === ovl; });
-    ovl.addEventListener('click', e => { if (e.target === ovl && ovlMousedown) close(); });
-    const saveBtn = dialog.querySelector('#tm-ecc-save');
-    saveBtn.onclick = async () => {
-      const phone  = dialog.querySelector('#tm-ecc-phone').value.trim();
-      const mobile = dialog.querySelector('#tm-ecc-mobile').value.trim();
-      const note   = dialog.querySelector('#tm-ecc-note').value.trim();
-      if (!contact && !phone && !mobile && !note) { statusEl.textContent = '請至少填寫一個欄位'; return; }
-      saveBtn.disabled = true; saveBtn.textContent = '儲存中...';
-      const ok = await app.SheetSync.updateContact(account, phone, mobile, note);
-      if (ok) { close(); statusEl.textContent = '聯絡資訊已更新'; renderTable(getDisplayData()); }
-      else { saveBtn.disabled = false; saveBtn.textContent = '💾 儲存'; statusEl.textContent = '儲存失敗'; }
-    };
-    const phoneIn = dialog.querySelector('#tm-ecc-phone');
-    const mobileIn = dialog.querySelector('#tm-ecc-mobile');
-    if (!phoneIn.value) phoneIn.focus();
-    else if (!mobileIn.value) mobileIn.focus();
-    else dialog.querySelector('#tm-ecc-note').focus();
-  }
-
   // ─── 編輯商品 Modal ────────────────────────────────────────────
   function showEditModal(row, onSaved, readOnly = false) {
     document.getElementById('tm-edit-modal')?.remove();
@@ -592,20 +531,6 @@
         const gKey = getGroupKey(row);
         if (gKey !== lastGroupKey) {
           lastGroupKey = gKey;
-          let contactHTML = '', editBtnHTML = '';
-          if (row.WinnerID && app.SheetSync?.isSynced()) {
-            const acct = row.Account || String(row.WinnerID);
-            const c = app.SheetSync.getContact(acct);
-            if (c) {
-              const parts = [];
-              if (c.name)   parts.push(`👤 ${c.name}`);
-              if (c.phone)  parts.push(`📞 ${c.phone}`);
-              if (c.mobile) parts.push(`📱 ${c.mobile}`);
-              if (c.note)   parts.push(`📝 ${c.note}`);
-              if (parts.length) contactHTML = `<span style="font-weight:normal;margin-left:12px;color:#333;font-size:13px;">${parts.join('　')}</span>`;
-            }
-            editBtnHTML = `<button class="tm-edit-contact-btn" data-account="${acct}" style="margin-left:8px;padding:1px 7px;font-size:10px;border:1px solid #2980b9;background:#fff;color:#2980b9;border-radius:3px;cursor:pointer;font-weight:normal;vertical-align:middle;">✏ 聯絡人</button>`;
-          }
           const isW = !!row.WinnerID, isB = !isW && (row.HasBids || row.Bidder);
           const ac = isW ? '#27ae60' : isB ? '#2980b9' : '#95a5a6';
           const bg = isW ? '#eafaf1' : isB ? '#eaf4fb' : '#f4f4f4';
@@ -615,7 +540,7 @@
           const printBtnHTML = isW
             ? `<button class="tm-print-pickup-btn" data-winnerid="${row.WinnerID}" data-winnerlabel="${encodeURIComponent(getGroupLabel(row).replace('得標者：',''))}" style="margin-left:8px;padding:1px 7px;font-size:10px;border:1px solid #e67e22;background:#fff;color:#e67e22;border-radius:3px;cursor:pointer;font-weight:normal;vertical-align:middle;">🖨 取貨單</button>`
             : '';
-          groupHeader = `<tr class="tm-group-hdr" style="background:${bg};border-left:4px solid ${ac};"><td colspan="14" style="padding:6px 10px;font-size:12px;font-weight:bold;letter-spacing:.5px;">${lbl}${contactHTML}${editBtnHTML}${printBtnHTML}</td></tr>`;
+          groupHeader = `<tr class="tm-group-hdr" style="background:${bg};border-left:4px solid ${ac};"><td colspan="14" style="padding:6px 10px;font-size:12px;font-weight:bold;letter-spacing:.5px;">${lbl}${printBtnHTML}</td></tr>`;
         }
       }
       const rowFaqs = faqsByProductID[row.ID] || [];
@@ -777,7 +702,7 @@
           MinAddPrice:     row.MinAddPrice || 10,
           StartDate:       row.StartDate,
           EndDate:         row.EndDate,
-          DistID:          row.DistID || '231',
+          DistID:          row.DistID || app.getCurrentDistID(),
           DeliveryAddress: row.DeliveryAddress || '',
           Length:          row.Length || 0,
           Width:           row.Width || 0,
@@ -825,13 +750,6 @@
           statusEl.textContent = `已刪除：${row.Name || row.AutoID}`;
           renderTable(getDisplayData());
         } catch (e) { el.innerHTML = '🗑'; el.disabled = false; statusEl.textContent = `刪除失敗：${e.message}`; }
-      });
-    });
-
-    body.querySelectorAll('.tm-edit-contact-btn').forEach(el => {
-      el.addEventListener('click', () => {
-        const account = el.dataset.account;
-        showEditContactModal(account, app.SheetSync?.getContact(account) || null);
       });
     });
 
@@ -975,12 +893,9 @@
     right.appendChild(rHeader);
     right.appendChild(rContent);
 
-    const isValidUrl = s => { try { new URL(s); return true; } catch { return false; } };
     const ls    = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
     const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
-    const DEFAULT_WEBHOOK  = 'https://580.blias.com/daobo/files.php?format=json';
-    const DEFAULT_CONTACTS = 'https://580.blias.com/daobo/contacts.php';
-    const DEFAULT_API_KEY  = 'furniture-helper-2024-secret';
+    const DEFAULT_DISTRICT_ID = app.APP_CONSTANTS.API.DEFAULT_DISTRICT_ID;
 
     const mkSection = (title, bg) => {
       const sec = document.createElement('div');
@@ -1010,27 +925,15 @@
       return row;
     };
 
-    const webhookSec = mkSection('📦 遠端匯入 Webhook', '#f8f9fa');
-    webhookSec.appendChild(mkField('Webhook 網址', 'tm-s-webhook', ls('furniture-helper-webhook-url', DEFAULT_WEBHOOK), 'url'));
-    const wSave = mkBtn('儲存', '#2980b9', 'tm-s-webhook-save');
-    const wReset = mkBtn('重置', '#7f8c8d', 'tm-s-webhook-reset');
-    const wTest  = mkBtn('測試連線', '#27ae60', 'tm-s-webhook-test');
-    webhookSec.appendChild(mkBtnRow(wSave, wReset, wTest));
-    rContent.appendChild(webhookSec);
-
-    const contactSec = mkSection('👤 聯絡人 API', '#fff8e1');
-    contactSec.appendChild(mkField('API 網址', 'tm-s-contacts-url', ls('furniture-helper-contacts-api-url', DEFAULT_CONTACTS), 'url'));
-    contactSec.appendChild(mkField('API Key', 'tm-s-contacts-key', ls('furniture-helper-contacts-api-key', DEFAULT_API_KEY)));
-    const cSave = mkBtn('儲存', '#2980b9', 'tm-s-contacts-save');
-    const cReset = mkBtn('重置', '#7f8c8d', 'tm-s-contacts-reset');
-    const cTest  = mkBtn('測試連線', '#27ae60', 'tm-s-contacts-test');
-    contactSec.appendChild(mkBtnRow(cSave, cReset, cTest));
-    rContent.appendChild(contactSec);
+    const distSec = mkSection('📍 行政區代碼', '#fff8e1');
+    distSec.appendChild(mkField('DistID', 'tm-s-distid', ls('furniture-helper-dist-id', DEFAULT_DISTRICT_ID)));
+    const dSave = mkBtn('儲存', '#2980b9', 'tm-s-distid-save');
+    const dReset = mkBtn('重置', '#7f8c8d', 'tm-s-distid-reset');
+    distSec.appendChild(mkBtnRow(dSave, dReset));
+    rContent.appendChild(distSec);
 
     const linkSec = mkSection('🔗 快速連結', '#e7f3ff');
     [
-      ['Files.php',    () => { const u = new URL(ls('furniture-helper-webhook-url', DEFAULT_WEBHOOK)); window.open(`${u.protocol}//${u.host}${u.pathname}`, '_blank'); }],
-      ['聯絡人管理',   () => window.open(ls('furniture-helper-contacts-api-url', DEFAULT_CONTACTS), '_blank')],
       ['介紹網站',     () => window.open('https://animeggunity.github.io/furniture-standalone/', '_blank')],
       ['GitHub',       () => window.open('https://github.com/AnimeggUnity/furniture-standalone', '_blank')],
     ].forEach(([label, fn]) => {
@@ -1049,132 +952,17 @@
       if (main) outerBody.appendChild(main);
     };
 
-    wSave.onclick = () => { const url = rContent.querySelector('#tm-s-webhook').value.trim(); if (!isValidUrl(url)) { statusEl.textContent = '請輸入有效網址'; return; } lsSet('furniture-helper-webhook-url', url); statusEl.textContent = 'Webhook 已儲存'; };
-    wReset.onclick = () => { rContent.querySelector('#tm-s-webhook').value = DEFAULT_WEBHOOK; lsSet('furniture-helper-webhook-url', DEFAULT_WEBHOOK); statusEl.textContent = 'Webhook 已重置'; };
-    wTest.onclick = async () => {
-      const url = rContent.querySelector('#tm-s-webhook').value.trim();
-      if (!isValidUrl(url)) { statusEl.textContent = '請輸入有效網址'; return; }
-      wTest.textContent = '測試中...'; wTest.disabled = true;
-      try { const r = await fetch(url); const d = r.ok ? await r.json() : null; statusEl.textContent = r.ok ? `Webhook 連線成功，${Array.isArray(d) ? d.length : 0} 筆` : `連線失敗：${r.status}`; }
-      catch (e) { statusEl.textContent = `連線錯誤：${e.message}`; }
-      finally { wTest.textContent = '測試連線'; wTest.disabled = false; }
+    dSave.onclick = () => {
+      const id = rContent.querySelector('#tm-s-distid').value.trim();
+      if (!id) { statusEl.textContent = '請輸入行政區代碼'; return; }
+      lsSet('furniture-helper-dist-id', id);
+      statusEl.textContent = '行政區代碼已儲存';
     };
-    cSave.onclick = () => { const url = rContent.querySelector('#tm-s-contacts-url').value.trim(); const key = rContent.querySelector('#tm-s-contacts-key').value.trim(); if (!isValidUrl(url) || !key) { statusEl.textContent = '請填寫完整欄位'; return; } lsSet('furniture-helper-contacts-api-url', url); lsSet('furniture-helper-contacts-api-key', key); if (app.SheetSync?.reloadSettings) app.SheetSync.reloadSettings(); statusEl.textContent = '聯絡人 API 已儲存'; };
-    cReset.onclick = () => { rContent.querySelector('#tm-s-contacts-url').value = DEFAULT_CONTACTS; rContent.querySelector('#tm-s-contacts-key').value = DEFAULT_API_KEY; lsSet('furniture-helper-contacts-api-url', DEFAULT_CONTACTS); lsSet('furniture-helper-contacts-api-key', DEFAULT_API_KEY); if (app.SheetSync?.reloadSettings) app.SheetSync.reloadSettings(); statusEl.textContent = '聯絡人 API 已重置'; };
-    cTest.onclick = async () => {
-      const url = rContent.querySelector('#tm-s-contacts-url').value.trim();
-      const key = rContent.querySelector('#tm-s-contacts-key').value.trim();
-      if (!isValidUrl(url) || !key) { statusEl.textContent = '請填寫完整欄位'; return; }
-      cTest.textContent = '測試中...'; cTest.disabled = true;
-      try { const r = await fetch(`${url}?action=get_contacts&apiKey=${encodeURIComponent(key)}`); const d = r.ok ? await r.json() : null; statusEl.textContent = (r.ok && d?.success) ? `聯絡人 API 連線成功，${d.contacts?.length || 0} 位` : `連線失敗：${d?.error || r.status}`; }
-      catch (e) { statusEl.textContent = `連線錯誤：${e.message}`; }
-      finally { cTest.textContent = '測試連線'; cTest.disabled = false; }
+    dReset.onclick = () => {
+      rContent.querySelector('#tm-s-distid').value = DEFAULT_DISTRICT_ID;
+      lsSet('furniture-helper-dist-id', DEFAULT_DISTRICT_ID);
+      statusEl.textContent = '行政區代碼已重置';
     };
-  }
-
-  // ─── 功能：遠端匯入 ────────────────────────────────────────────
-  async function handleRemoteImport() {
-    statusEl.textContent = '連線遠端中...';
-    try {
-      const resp = await fetch(app.getCurrentWebhookUrl());
-      if (!resp.ok) throw new Error(`無法取得清單: ${resp.statusText}`);
-      const files = await resp.json();
-      if (!files?.length) { statusEl.textContent = '遠端目前無資料'; return; }
-      statusEl.textContent = `遠端共 ${files.length} 筆`;
-      openRemoteImportSplit(files);
-    } catch (e) { statusEl.textContent = `遠端連線失敗：${e.message}`; }
-  }
-
-  function openRemoteImportSplit(files) {
-    const outerBody = document.querySelector('.tm-db-body');
-    if (!outerBody) return;
-    files.sort((a, b) => new Date(b.date) - new Date(a.date));
-    const mainEl = document.getElementById('tm-db-main');
-    outerBody.style.cssText = 'flex:1;overflow:hidden;display:flex;';
-    outerBody.innerHTML = '';
-    const left = document.createElement('div');
-    left.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column;min-width:0;';
-    if (mainEl) left.appendChild(mainEl);
-    const right = document.createElement('div');
-    right.style.cssText = 'width:360px;border-left:2px solid #e0e0e0;display:flex;flex-direction:column;background:#fafafa;flex-shrink:0;overflow:hidden;';
-    outerBody.appendChild(left);
-    outerBody.appendChild(right);
-
-    const rHeader = document.createElement('div');
-    rHeader.style.cssText = 'background:#2c3e50;color:#fff;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;font-size:12px;';
-    rHeader.innerHTML = `<span style="font-weight:bold;white-space:nowrap;">遠端匯入（${files.length} 筆）</span><span id="tm-remote-close" style="cursor:pointer;font-size:14px;opacity:.7;">×</span>`;
-    const rToolbar = document.createElement('div');
-    rToolbar.style.cssText = 'padding:9px 12px;border-bottom:1px solid #e0e0e0;display:flex;gap:8px;align-items:center;flex-shrink:0;background:#fff;';
-    rToolbar.innerHTML = `
-      <input id="tm-remote-search" type="text" placeholder="搜尋..." style="flex:1;padding:5px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
-      <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#555;white-space:nowrap;">
-        競標 <input id="tm-remote-days" type="number" value="14" min="1" max="90" style="width:42px;padding:4px 5px;border:1px solid #ccc;border-radius:4px;font-size:12px;text-align:center;"> 天
-      </label>`;
-    const listEl = document.createElement('div');
-    listEl.style.cssText = 'overflow-y:auto;flex:1;';
-    right.appendChild(rHeader); right.appendChild(rToolbar); right.appendChild(listEl);
-
-    rHeader.querySelector('#tm-remote-close').onclick = () => {
-      const main = document.getElementById('tm-db-main');
-      outerBody.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column;';
-      outerBody.innerHTML = ''; if (main) outerBody.appendChild(main);
-    };
-
-    const renderList = (filter = '') => {
-      const filtered = filter ? files.filter(f => (f.title || '').toLowerCase().includes(filter)) : files;
-      listEl.innerHTML = '';
-      filtered.forEach((f, i) => {
-        const row = document.createElement('div');
-        row.style.cssText = `display:flex;align-items:center;gap:10px;padding:9px 12px;background:${i % 2 === 0 ? '#fff' : '#f7f9fc'};border-bottom:1px solid #eee;`;
-        row.innerHTML = `
-          <div style="flex:1;min-width:0;">
-            <div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${f.title || '未命名'}</div>
-            <div style="font-size:11px;color:#888;margin-top:2px;">$${f.price || 0} ｜ ${(f.date || '').slice(0, 10)}</div>
-          </div>
-          <button class="tm-remote-import-btn" style="padding:4px 10px;background:#27ae60;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;white-space:nowrap;flex-shrink:0;">匯入</button>`;
-        row.querySelector('.tm-remote-import-btn').onclick = async e => {
-          const btn = e.currentTarget;
-          btn.textContent = '處理中...'; btn.disabled = true;
-          try {
-            await importRemoteFile(f);
-            btn.textContent = '✓ 完成'; btn.style.background = '#95a5a6';
-            if (startInputEl && endInputEl) handleFetch(startInputEl, endInputEl);
-          } catch (err) { btn.textContent = '失敗'; btn.disabled = false; statusEl.textContent = `匯入失敗：${err.message}`; }
-        };
-        listEl.appendChild(row);
-      });
-    };
-    renderList();
-    rToolbar.querySelector('#tm-remote-search').oninput = e => renderList(e.target.value.trim().toLowerCase());
-  }
-
-  async function importRemoteFile(fileInfo) {
-    const pad = n => String(n).padStart(2, '0');
-    statusEl.textContent = `下載中：${fileInfo.title || ''}`;
-    const baseUrl = app.getCurrentWebhookUrl().split('?')[0];
-    const resp = await fetch(`${baseUrl}?action=download&file=${fileInfo.filename}`);
-    if (!resp.ok) throw new Error(`無法下載：${resp.statusText}`);
-    const jsonData = await resp.json();
-    if (jsonData.Photos?.length) {
-      for (let i = 0; i < jsonData.Photos.length; i++) {
-        statusEl.textContent = `處理圖片 ${i + 1}/${jsonData.Photos.length}`;
-        const photo = jsonData.Photos[i];
-        if (photo.Photo?.startsWith('data:image')) {
-          const file = app.optimizedBase64ToFile(photo.Photo, `image_${i + 1}.jpg`);
-          const result = await app.uploadImage(file);
-          jsonData.Photos[i] = { ...photo, Photo: result.FilePath || result };
-        }
-      }
-    }
-    const days = parseInt(document.getElementById('tm-remote-days')?.value, 10) || 14;
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const end   = new Date(now.getFullYear(), now.getMonth(), now.getDate() + days);
-    const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} 00:00:00`;
-    jsonData.StartDate = fmt(start); jsonData.EndDate = fmt(end);
-    statusEl.textContent = `送出中：${fileInfo.title || ''}`;
-    await app.directSubmitToAPI(jsonData);
-    statusEl.textContent = `匯入完成：${fileInfo.title || ''}`;
   }
 
   function handleSingleImport() {
@@ -1733,7 +1521,6 @@
     importRow.append(
       mkImportBtn('單筆匯入', '#27ae60', handleSingleImport),
       mkImportBtn('多筆匯入', '#2980b9', handleMultiImport),
-      mkImportBtn('遠端匯入', '#8e44ad', handleRemoteImport),
     );
     container.appendChild(importRow);
   }
@@ -1766,15 +1553,6 @@
         trackSortBtn.textContent = '追蹤數排序';
       }
       renderTable(getDisplayData());
-      if (isSortedByWinner && app.SheetSync && !app.SheetSync.isSynced()) {
-        statusEl.textContent = '同步聯絡人中...';
-        app.SheetSync.syncContacts()
-          .then(ok => {
-            statusEl.textContent = ok ? '聯絡人同步完成' : '聯絡人同步失敗';
-            if (isSortedByWinner) renderTable(getDisplayData());
-          })
-          .catch(() => { statusEl.textContent = '聯絡人同步失敗'; });
-      }
     };
     featureBtns.push(winnerSortBtn);
 

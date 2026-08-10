@@ -53,7 +53,7 @@
         MinAddPrice: jsonData.MinAddPrice || 10,
         StartDate: jsonData.StartDate || new Date().toISOString().slice(0, 19).replace('T', ' '),
         EndDate: jsonData.EndDate || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' '), // ← 預設為兩周後
-        DistID: jsonData.DistID || '231',
+        DistID: jsonData.DistID || app.getCurrentDistID(),
         DeliveryAddress: jsonData.DeliveryAddress || '',
         Length: jsonData.Length || '0',
         Width: jsonData.Width || '0',
@@ -208,7 +208,7 @@
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        AutoID: null, Name: '', CategoryID: 0, DistID: '231',
+        AutoID: null, Name: '', CategoryID: 0, DistID: app.getCurrentDistID(),
         IsPay: null, IsGet: null, Winner: '',
         StartDate: startDate, EndDate: endDate, BidStatus: 0
       })
@@ -241,7 +241,7 @@
     }));
   }
 
-  async function getFAQs(distID = '231') {
+  async function getFAQs(distID = app.getCurrentDistID()) {
     const resp = await fetch(`${BASE}/BidMgr/api/Product/GetFAQs?distID=${distID}`, {
       credentials: 'include',
       headers: { accept: 'application/json' }

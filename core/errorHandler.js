@@ -11,7 +11,6 @@
       'json-parsing': 'JSON 資料解析時發生錯誤',
       'api-call': 'API 請求時發生錯誤',
       'network-request': '網路請求時發生錯誤',
-      'remote-import': '遠端匯入時發生錯誤',
       'ui-operation': '介面操作時發生錯誤',
       'dom-manipulation': 'DOM 操作時發生錯誤',
       'event-handling': '事件處理時發生錯誤',
