@@ -934,8 +934,8 @@
 
     const linkSec = mkSection('🔗 快速連結', '#e7f3ff');
     [
-      ['介紹網站',     () => window.open('https://animeggunity.github.io/furniture-standalone/', '_blank')],
-      ['GitHub',       () => window.open('https://github.com/AnimeggUnity/furniture-standalone', '_blank')],
+      ['使用說明',     () => window.open('https://github.com/AnimeggUnity/furniture-standalone/blob/offline-edition/README.md', '_blank')],
+      ['GitHub',       () => window.open('https://github.com/AnimeggUnity/furniture-standalone/tree/offline-edition', '_blank')],
     ].forEach(([label, fn]) => {
       const btn = document.createElement('button');
       btn.textContent = label;
