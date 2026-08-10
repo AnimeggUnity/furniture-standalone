@@ -3,6 +3,8 @@
 
   // ─── 欄位目錄 ────────────────────────────────────────────────
   const FIELDS = [
+    { key: 'AutoID',         label: '商品編號',    type: 'number'   },
+    { key: 'Name',           label: '商品名稱',    type: 'text'     },
     { key: 'WinnerID',       label: '得標者',      type: 'presence' },
     { key: 'IsPay',          label: '付款狀態',    type: 'boolean'  },
     { key: 'IsGet',          label: '取貨狀態',    type: 'boolean'  },
@@ -39,10 +41,27 @@
       { value: 'after',  label: '晚於' },
       { value: 'eq',     label: '等於' },
     ],
+    text: [
+      { value: 'contains',    label: '包含' },
+      { value: 'notContains', label: '不包含' },
+    ],
   };
 
   // ─── 內建 Preset ─────────────────────────────────────────────
   const BUILT_IN_PRESETS = {
+    '商品編號範圍': {
+      logic: 'AND',
+      conditions: [
+        { field: 'AutoID', op: 'gte', value: 3000 },
+        { field: 'AutoID', op: 'lte', value: 4000 },
+      ]
+    },
+    '商品名稱搜尋': {
+      logic: 'AND',
+      conditions: [
+        { field: 'Name', op: 'contains', value: '' },
+      ]
+    },
     '逾期未付': {
       logic: 'AND',
       conditions: [
@@ -115,6 +134,8 @@
       case 'neq':       return String(v) !== String(value);
       case 'before':    return new Date(v) < new Date(value);
       case 'after':     return new Date(v) > new Date(value);
+      case 'contains':    return String(v ?? '').toLowerCase().includes(String(value ?? '').toLowerCase());
+      case 'notContains': return !String(v ?? '').toLowerCase().includes(String(value ?? '').toLowerCase());
     }
     return false;
   }
@@ -249,8 +270,8 @@
           // 布林/presence 不需值輸入
           const needsValue = !['presence','boolean'].includes(field?.type);
           valInput.style.display = needsValue ? '' : 'none';
-          // 日期欄位用萬年曆，數字欄位用數字鍵盤
-          valInput.type = field?.type === 'date' ? 'date' : 'number';
+          // 日期欄位用萬年曆，數字欄位用數字鍵盤，文字欄位用一般輸入框
+          valInput.type = field?.type === 'date' ? 'date' : field?.type === 'text' ? 'text' : 'number';
         };
 
         refreshOps(cond.field, cond.op);

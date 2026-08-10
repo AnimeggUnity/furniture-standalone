@@ -142,13 +142,25 @@
     return uploaded;
   }
 
-  async function updateProductEndDate(item, days = 7) {
+  const pad = n => String(n).padStart(2, '0');
+
+  function computeEndDate(days) {
     const today = new Date();
     const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + days);
-    const pad = (n) => String(n).padStart(2, '0');
-    const newEndDate = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())} 00:00`;
-    const payload = { ...item, EndDate: newEndDate };
-    console.log(`📅 刷新截標日: ${item.Name} (AutoID: ${item.AutoID}) → ${newEndDate}`);
+    return `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())} 00:00`;
+  }
+
+  function computeNowString() {
+    const now = new Date();
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  }
+
+  /**
+   * 通用商品欄位更新：取整筆商品資料，覆蓋指定欄位，打 UpdateProduct API。
+   * 截標日刷新、即時結標、改起標價都是這個動作的特化版本。
+   */
+  async function updateProductField(item, fieldUpdates) {
+    const payload = { ...item, ...fieldUpdates };
     const response = await fetch(BASE + '/BidMgr/api/Product/UpdateProduct', {
       method: 'POST',
       credentials: 'include',
@@ -159,18 +171,35 @@
     return await response.json();
   }
 
+  async function updateProductEndDate(item, days = 7) {
+    const newEndDate = computeEndDate(days);
+    console.log(`📅 刷新截標日: ${item.Name} (AutoID: ${item.AutoID}) → ${newEndDate}`);
+    return updateProductField(item, { EndDate: newEndDate });
+  }
+
   async function closeProductNow(item) {
-    const now = new Date();
-    const pad = n => String(n).padStart(2, '0');
-    const nowStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    const payload = { ...item, EndDate: nowStr };
-    const response = await fetch(BASE + '/BidMgr/api/Product/UpdateProduct', {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return response.json();
+    return updateProductField(item, { EndDate: computeNowString() });
+  }
+
+  async function updateProductPrice(item, price) {
+    console.log(`💰 修改起標價: ${item.Name} (AutoID: ${item.AutoID}) → ${price}`);
+    return updateProductField(item, { InitPrice: String(price) });
+  }
+
+  /**
+   * 批次改起標價，只套用在「確定尚無人出價」的商品——避免改到已在競標中的商品起標門檻。
+   */
+  async function applyBatchPriceUpdate(products, price) {
+    const targets = products.filter(item => app.BID_STATUS_SYSTEM.determineState(item) === 'noBids');
+    let done = 0, failed = 0;
+    for (const item of targets) {
+      try { await updateProductPrice(item, price); done++; }
+      catch (e) {
+        console.error(`💰 改價失敗: ${item.Name} (AutoID: ${item.AutoID})`, e);
+        failed++;
+      }
+    }
+    return { done, failed, skipped: products.length - targets.length };
   }
 
   async function getProducts(startDate, endDate) {
@@ -238,6 +267,8 @@
   app.deleteProductAPI = deleteProductAPI;
   app.uploadImagesWithCorrectAPI = uploadImagesWithCorrectAPI;
   app.updateProductEndDate = updateProductEndDate;
+  app.updateProductPrice = updateProductPrice;
+  app.applyBatchPriceUpdate = applyBatchPriceUpdate;
   app.getProducts = getProducts;
   app.enrichWithBids = enrichWithBids;
   app.getFAQs = getFAQs;

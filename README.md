@@ -2,7 +2,7 @@
 
 一個專為「新北市再生家具拍賣網」管理員設計的專業級 Chrome 擴充功能，提供自動化上架、競標監控、聯絡人同步與高效資料管理功能。
 
-![Version](https://img.shields.io/badge/version-1.1.4-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.5-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Chrome%20|%20Edge-lightgrey.svg)
 ![Manifest](https://img.shields.io/badge/manifest-V3-orange.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -40,6 +40,8 @@
 #### 1. 產品管理自動化 (Product Automation)
 - **快速上架系統**：繞過繁瑣表單，直接透過 `directSubmitToAPI` 送出 JSON 資料。
 - **批次刷新截標日**：一鍵將流標物件延長競標期（預設 +7 天），大幅減少重複勞動。
+- **批量修改起標價** 🆕：對篩選清單一次調整起標價，僅套用於「尚無人出價」的商品，已在競標中的自動略過，避免破壞既有出價紀錄。
+- **進階篩選欄位** 🆕：新增「商品編號」（範圍篩選）與「商品名稱」（關鍵字包含/不包含）兩個欄位，並內建「商品編號範圍」「商品名稱搜尋」「競標中可縮短（5天+）」三個 preset 範本，套用後微調數值即可。
 - **智慧類別映射**：自動將中文名稱轉換為系統內部的 `CategoryID`。
 
 #### 2. 強大圖片處理引擎 (Image Engine)
@@ -73,7 +75,8 @@
 封裝了所有與新北市政府伺服器的通訊邏輯：
 - `uploadImage()`: 處理單張或多張圖片上傳。
 - `directSubmitToAPI()`: 處理商品新增。
-- `updateProductEndDate()`: 執行截標日更新。
+- `updateProductEndDate()` / `updateProductPrice()`: 分別執行截標日與起標價更新，底層共用 `updateProductField()`。
+- `applyBatchPriceUpdate()`: 批量改起標價，僅套用於確定尚無出價的商品。
 - `enrichWithBids()`: 批量抓取競標記錄並整合進商品資料。
 
 #### `utils/sheetSync.js` - 資料同步層
@@ -177,7 +180,14 @@ setTimeout('fn()', 1000);       // ❌
 
 ## 🔄 版本更新歷史
 
-### v1.1.4 (Current - 2026/04)
+### v1.1.5 (Current - 2026/08)
+- ✅ **批量修改起標價**：批次操作面板新增按鈕，可對篩選清單一次調整起標價，僅套用於「確定尚無人出價」的商品，已在競標中的自動略過並回報略過筆數。
+  - `utils/api.js` 抽出通用 `updateProductField()`，`updateProductEndDate()`／`closeProductNow()` 一併改為呼叫共用邏輯，不再各自重複 fetch。
+- ✅ **進階篩選新增欄位**：`商品編號`（number，可組 `>=`/`<=` 做範圍篩選）與 `商品名稱`（新增 text 型別，支援「包含」「不包含」）。
+  - 新增 3 個 preset 範本：「商品編號範圍」「商品名稱搜尋」「競標中可縮短（5天+）」，套用後微調數值即可。
+- 🐛 修正查詢器文字型欄位的輸入框被強制設成 `type="number"` 的問題，導致中文關鍵字無法輸入。
+
+### v1.1.4 (2026/04)
 - ✅ **取貨單列印**：在得標者分組標頭新增「🖨 取貨單」按鈕。
   - 點擊後開啟新分頁，列出該得標者所有未取貨商品（含未入帳付款、排除棄標）。
   - 列印頁顯示商品圖片、名稱、得標金額，底部附領貨人簽名、聯絡電話、領貨日期填寫欄。

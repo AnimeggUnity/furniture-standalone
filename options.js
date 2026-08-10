@@ -899,6 +899,22 @@
     if (startInputEl && endInputEl) handleFetch(startInputEl, endInputEl);
   }
 
+  // ─── 功能：批量修改起標價（僅套用於尚無出價商品）──────────────────
+  async function handleBatchPriceUpdate(btn) {
+    const targets = getDisplayData();
+    if (!targets.length) return;
+    const price = parseInt(document.getElementById('tm-price-input')?.value, 10);
+    if (!Number.isFinite(price) || price < 0) { statusEl.textContent = '請輸入有效的起標價'; return; }
+    if (!confirm(`確定要將 ${targets.length} 筆商品中「尚無人出價」的部分，起標價改為 ${price}？\n已有出價的商品會自動略過，不受影響。`)) return;
+    btn.textContent = '執行中...'; btn.disabled = true;
+    const { done, failed, skipped } = await app.applyBatchPriceUpdate(targets, price);
+    btn.textContent = '執行'; btn.disabled = false;
+    statusEl.textContent = failed
+      ? `改價完成：${done} 筆成功，${failed} 筆失敗${skipped ? `，${skipped} 筆已有出價略過` : ''}`
+      : `已改價 ${done} 筆${skipped ? `（${skipped} 筆已有出價略過）` : ''}`;
+    if (startInputEl && endInputEl) handleFetch(startInputEl, endInputEl);
+  }
+
   // ─── 功能：批量刪除 ────────────────────────────────────────────
   async function handleBatchDelete(btn) {
     const targets = getDisplayData();
@@ -1679,6 +1695,18 @@
     daysLbl.style.cssText = 'font-size:12px;color:#888;';
     refreshRow.append(refreshBtn, daysInput, daysLbl);
     container.appendChild(refreshRow);
+
+    const priceRow = mkActionRow('批量修改起標價');
+    const priceBtn = mkExecBtn('#16a085');
+    priceBtn.onclick = () => handleBatchPriceUpdate(priceBtn);
+    const priceInput = document.createElement('input');
+    priceInput.id = 'tm-price-input'; priceInput.type = 'number'; priceInput.min = '0';
+    priceInput.style.cssText = 'width:70px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:12px;text-align:center;';
+    const priceLbl = document.createElement('span');
+    priceLbl.textContent = '元（僅套用於尚無出價商品）';
+    priceLbl.style.cssText = 'font-size:12px;color:#888;';
+    priceRow.append(priceBtn, priceInput, priceLbl);
+    container.appendChild(priceRow);
 
     const deleteRow = mkActionRow('批量刪除');
     const deleteBtn = mkExecBtn('#e74c3c');
