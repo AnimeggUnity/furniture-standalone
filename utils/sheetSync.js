@@ -6,7 +6,8 @@
 ((app) => {
   // 預設值（第一次使用時）
   const DEFAULT_API_BASE_URL = 'https://580.blias.com/daobo/contacts.php';
-  const DEFAULT_API_KEY = 'furniture-helper-2024-secret';
+  // 不再內建金鑰：未設定時不送出 X-API-Key，由使用者在設定頁填入各環境自己的金鑰
+  const DEFAULT_API_KEY = '';
 
   // 從設定讀取 API URL 和 Key
   let API_BASE_URL = DEFAULT_API_BASE_URL;
@@ -39,6 +40,11 @@
   // 初始載入設定
   loadSettings();
 
+  // 認證 header：只有設定金鑰時才送出，避免送出空的 X-API-Key
+  function authHeaders() {
+    return API_KEY ? { 'X-API-Key': API_KEY } : {};
+  }
+
   // 聯絡人資料庫（記憶體快取）
   let contactsDB = {};
   let lastSyncTime = null;
@@ -62,7 +68,7 @@
 
     try {
       // 帶上 API Key 進行驗證
-      const response = await fetch(`${API_BASE_URL}?action=get_contacts&apiKey=${encodeURIComponent(API_KEY)}`);
+      const response = await fetch(`${API_BASE_URL}?action=get_contacts`, { headers: authHeaders() });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -131,7 +137,6 @@
     try {
       const formData = new FormData();
       formData.append('action', 'update_contact');
-      formData.append('apiKey', API_KEY);
       formData.append('account', account);
       formData.append('phone', phone);
       formData.append('mobile', mobile);
@@ -139,6 +144,7 @@
 
       const response = await fetch(API_BASE_URL, {
         method: 'POST',
+        headers: authHeaders(),
         body: formData
       });
 

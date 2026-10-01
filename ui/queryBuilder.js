@@ -12,6 +12,7 @@
     { key: 'HasBids',        label: '有無競標',    type: 'boolean'  },
     { key: 'EndDate',        label: '截標日',      type: 'date'     },
     { key: 'StartDate',      label: '起標日',      type: 'date'     },
+    { key: 'CreateDate',     label: '建立日期',    type: 'date'     },
     { key: 'TrackCount',     label: '追蹤數',      type: 'number'   },
     { key: 'InitPrice',      label: '起標價',      type: 'number'   },
     { key: '_duration',      label: '競標天數',    type: 'number'   },
@@ -39,6 +40,8 @@
     date: [
       { value: 'before', label: '早於' },
       { value: 'after',  label: '晚於' },
+      { value: 'onOrBefore', label: '不晚於' },
+      { value: 'onOrAfter',  label: '不早於' },
       { value: 'eq',     label: '等於' },
     ],
     text: [
@@ -121,6 +124,15 @@
 
   function evalCondition(row, { field, op, value }) {
     const v = getFieldValue(row, field);
+    const dateOnly = date => {
+      const raw = String(date ?? '');
+      const datePart = raw.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+      if (datePart) return datePart;
+      const parsed = new Date(date);
+      if (Number.isNaN(parsed.getTime())) return '';
+      const pad = n => String(n).padStart(2, '0');
+      return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}`;
+    };
     switch (op) {
       case 'notEmpty':  return v != null && v !== '';
       case 'isEmpty':   return v == null || v === '';
@@ -134,6 +146,8 @@
       case 'neq':       return String(v) !== String(value);
       case 'before':    return new Date(v) < new Date(value);
       case 'after':     return new Date(v) > new Date(value);
+      case 'onOrBefore': return dateOnly(v) !== '' && dateOnly(v) <= dateOnly(value);
+      case 'onOrAfter':  return dateOnly(v) !== '' && dateOnly(v) >= dateOnly(value);
       case 'contains':    return String(v ?? '').toLowerCase().includes(String(value ?? '').toLowerCase());
       case 'notContains': return !String(v ?? '').toLowerCase().includes(String(value ?? '').toLowerCase());
     }

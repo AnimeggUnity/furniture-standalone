@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "新北再生家具管理後台",
-  "version": "1.0.0",
+  "version": "1.1.6",
   "description": "新北市再生家具拍賣網後台管理工具",
   "icons": {
     "128": "icon.png"

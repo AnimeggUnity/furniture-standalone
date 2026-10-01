@@ -2,7 +2,7 @@
 
 一個專為「新北市再生家具拍賣網」管理員設計的專業級 Chrome 擴充功能，提供自動化上架、競標監控、聯絡人同步與高效資料管理功能。
 
-![Version](https://img.shields.io/badge/version-1.1.5-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.6-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Chrome%20|%20Edge-lightgrey.svg)
 ![Manifest](https://img.shields.io/badge/manifest-V3-orange.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -15,7 +15,7 @@
 ├── manifest.json          # 擴充功能清單檔 (V3)
 ├── background.js          # 背景 Service Worker
 ├── inject-btn.js          # 頁面注入腳本 (Content Script)
-├── init-shims.js          # 環境相容性補丁
+├── init-shims.js          # 環境相容性補丁、Webhook 認證 header 提供者
 ├── config/                # 系統配置模組
 │   ├── constants.js       # 全域常數 (配色、時間、API 設定)
 │   └── mappings.js        # 類別與行政區映射邏輯
@@ -50,7 +50,7 @@
 - **格式轉換**：支援 File 物件與 Base64 互轉。
 
 #### 3. 聯絡人資料同步 (Sheet Sync) 🆕
-- **遠端資料同步**：從自定義 PHP API 同步得標者聯絡資料（支援 API Key 驗證）。
+- **遠端資料同步**：從自定義 PHP API 同步得標者聯絡資料；API Key 一律以 `X-API-Key` request header 傳送（詳見〈🔐 API 金鑰與認證傳輸規則〉）。
 - **雙重索引查詢**：支援透過「帳號」或「Email」O(1) 複雜度快速檢索聯絡人資訊。
 - **即時狀態反饋**：同步按鈕顯示 (⏳同步中 / ✓已同步 / 🔄未同步) 狀態。
 - **資料補充機制**：可在介面上直接更新聯絡人電話與備註，並回傳至遠端資料庫。
@@ -63,7 +63,7 @@
 #### 5. 現代化 UI 系統 (Modern UI/UX)
 - **按鈕無縫注入**：自動在官方後台插入功能按鈕，維持原生操作習慣。
 - **扁平風設計**：使用柔和配色系統 (`#4A90E2`) 與圓角設計，提升管理體驗。
-- **彈性配置面板**：支援自定義 API URL 與連線測試功能。
+- **彈性配置面板**：支援自定義 Webhook／聯絡人 API 網址與 API Key，並內建連線測試功能。
 
 ---
 
@@ -81,7 +81,7 @@
 
 #### `utils/sheetSync.js` - 資料同步層
 負責與外部聯絡人資料庫對接：
-- 支援 `get_contacts` 與 `update_contact` 操作。
+- 支援 `get_contacts` 與 `update_contact` 操作，兩者皆以 `X-API-Key` header 認證（`update_contact` 不再把金鑰放進 FormData）。
 - 具備記憶體快取機制，避免重複請求。
 - 優先採用「手動補充資料」，自動資料作為備援。
 
@@ -106,6 +106,8 @@
 ### 3. 安全與穩定性
 - **統一錯誤處理**: `ERROR_HANDLER` 攔截所有網路錯誤並提供友好的 UI 通知。
 - **狀態機機制**: `bidStatus.js` 確保競標狀態判斷邏輯的一致性，避免人為誤判。
+- **金鑰處理**: API Key 只存放於擴充功能的 `localStorage`，所有請求以 `X-API-Key` request header 送出；沒有設定金鑰時不送 header，金鑰絕不出現在 URL、query string、FormData、console log 或版控內容中。
+- **擴充功能連線偵測**: `inject-btn.js` 在 `chrome.runtime` 失效時給出明確提示，避免點了「管理後台」卻毫無反應。
 
 ---
 
@@ -142,6 +144,94 @@ setTimeout('fn()', 1000);       // ❌
 
 ---
 
+## 🔐 API 金鑰與認證傳輸規則（必讀）
+
+> 這是 2026/10 起生效的現行行為。舊版擴充功能把 API Key 放在 query string（`?apiKey=...`）與 FormData 欄位，**已全面移除**；請勿在任何新程式碼、範本或文件中改回舊寫法。
+
+### 設定項目（設定面板「系統設定」）
+
+| 設定 | localStorage key | 預設值 | 用途 |
+|------|------------------|--------|------|
+| Webhook 網址 | `furniture-helper-webhook-url` | `https://580.blias.com/daobo/files.php?format=json` | 遠端商品清單／下載 |
+| 聯絡人 API 網址 | `furniture-helper-contacts-api-url` | `https://580.blias.com/daobo/contacts.php` | 聯絡人讀取／更新 |
+| API Key | `furniture-helper-contacts-api-key` | 無（空字串，程式**不內建金鑰**；未設定時不送出 header，後端會回 403） | 商品與聯絡人端點共用的認證金鑰 |
+
+設定面板提供「儲存／重置／測試連線」；儲存聯絡人設定後會呼叫 `SheetSync.reloadSettings()` 立即生效。金鑰只存在使用者本機的擴充功能 `localStorage`，不會寫入任何後端設定檔或版控內容。
+
+### 傳輸規則
+
+1. **一律使用 request header `X-API-Key`**
+
+   ```js
+   fetch(url, { headers: { 'X-API-Key': key } });
+   ```
+
+2. **禁止**把金鑰放進 query string、URL 路徑、FormData、JSON body、檔名、console log、回報文件、截圖或 Git 內容。
+3. 沒有設定金鑰時**不送出 header**（不是送出空值）。商品端點由 `init-shims.js` 提供，聯絡人端點由 `utils/sheetSync.js` 的 `authHeaders()` 提供：
+
+   ```js
+   // init-shims.js
+   app.getCurrentWebhookHeaders = () => {
+     const key = localStorage.getItem('furniture-helper-contacts-api-key') || '';
+     return key ? { 'X-API-Key': key } : {};
+   };
+
+   // utils/sheetSync.js
+   function authHeaders() {
+     return API_KEY ? { 'X-API-Key': API_KEY } : {};
+   }
+   ```
+
+4. 文件或範例要示範認證時，請用 `X-API-Key: <YOUR_API_KEY>` 這類佔位符，不要貼上真實金鑰。
+
+### 端點與認證對照
+
+| 功能 | 方法 | 端點 | 認證 | 程式位置 |
+|------|------|------|------|----------|
+| 遠端商品清單 | GET | `files.php?format=json` | `X-API-Key`（有設定才送） | `options.js` `handleRemoteImport()` |
+| 遠端商品下載 | GET | `files.php?action=download&file=<檔名>` | `X-API-Key` | `options.js` `importRemoteFile()` |
+| 聯絡人讀取 | GET | `contacts.php?action=get_contacts` | `X-API-Key` | `utils/sheetSync.js` `syncContacts()` |
+| 聯絡人更新 | POST | `contacts.php`（FormData：`action=update_contact`、`account`、`phone`、`mobile`、`note`） | `X-API-Key` | `utils/sheetSync.js` `updateContact()` |
+| 設定頁測試連線 | GET | 上述清單／聯絡人端點 | `X-API-Key` | `options.js` 設定面板 |
+
+下載網址以 `new URL()` + `searchParams` 重組：保留 Webhook 網址自帶的授權參數、刪除清單用的 `format=json`，再設定 `action=download` 與 `file`。伺服器回非 2xx 時會嘗試解析回應 JSON 的 `message`／`error`，並附上 HTTP 狀態顯示。
+
+### 後端配合事項
+
+- Worker／PHP 端必須接受 `X-API-Key` header；缺少或錯誤的金鑰應回 **403**（不要靜默回空清單）。
+- 若後端仍保留 `?apiKey=` 舊介面，請視為過渡期相容並儘速停用，避免金鑰經由 URL、access log 或 Referer 外洩。
+- 各環境請使用各自的網址與金鑰；金鑰本身不隨擴充功能版本發布。
+
+### 環境設定範例（staging，不含金鑰）
+
+```text
+Webhook 網址：   https://ntpc-js-app-staging.dk-talk.workers.dev/?format=json
+聯絡人 API 網址：https://ntpc-js-app-staging.dk-talk.workers.dev/contacts.php
+API Key：        <在設定面板輸入，切勿寫進網址>
+```
+
+### 自我檢查
+
+```bash
+# 應無任何輸出：確認沒有程式碼把金鑰放回 URL 或 FormData
+grep -rn "apiKey=\|append('apiKey'" --include="*.js" .
+# 應無任何輸出：確認程式碼沒有內建金鑰（DEFAULT_API_KEY 必須是空字串）
+grep -rnE "DEFAULT_API_KEY *= *'[^']+'" --include="*.js" .
+# 應只出現在 init-shims.js / utils/sheetSync.js / options.js 的 fetch header
+grep -rn "X-API-Key" --include="*.js" .
+```
+
+### 常見錯誤排查
+
+| 現象 | 可能原因 | 處理 |
+|------|----------|------|
+| 連線失敗 `403` | 金鑰未設定、輸入錯誤，或後端仍只認 query string 版本 | 未設定金鑰時程式不會送出 header，403 屬預期；請到設定面板填入金鑰並儲存，並確認後端已支援 `X-API-Key` |
+| 清單測試成功但 0 筆 | Webhook 網址缺少 `format=json`，或回應格式不是陣列 | 使用 `files.php?format=json` 形式的網址 |
+| 下載得到清單 JSON 而非檔案 | 網址同時帶了 `format=json` 與 `action=download` | 現行程式會自動移除 `format`；自訂網址時請勿手動加回 |
+| 點「管理後台」出現「擴充功能連線已失效」 | 擴充功能重新載入後，舊頁面的 content script 已失效 | 重新整理頁面；必要時到 `chrome://extensions/` 重新載入擴充功能 |
+
+---
+
 ## 📊 資料結構 (Payload)
 
 ### 產品上傳結構 (Product Schema)
@@ -172,7 +262,7 @@ setTimeout('fn()', 1000);       // ❌
 4. 點擊「載入未封裝擴充功能」，選擇專案資料夾。
 
 ### 基本操作
-1. **設定 API**: 點擊工具列圖示進入「選項」，設定聯絡人同步 API 與 Webhook。
+1. **設定 API**: 點擊工具列圖示進入「選項」→ 右側「系統設定」，填入 Webhook 網址、聯絡人 API 網址與**你自己環境的** API Key（程式不內建金鑰；金鑰只會以 `X-API-Key` header 送出），可用「測試連線」確認。
 2. **同步資料**: 開啟後台頁面，點擊「同步聯絡人」以載入最新得標者資訊。
 3. **快速管理**: 在商品列表中使用「刷新截標日」或「直接上架」功能。
 
@@ -180,7 +270,18 @@ setTimeout('fn()', 1000);       // ❌
 
 ## 🔄 版本更新歷史
 
-### v1.1.5 (Current - 2026/08)
+### v1.1.6 (2026/10，工作區版本，尚未發布)
+- 🔐 **API Key 全面改以 `X-API-Key` request header 傳送**：商品清單、商品下載、聯絡人讀取／更新與設定頁「測試連線」皆改為 header 認證；移除 query string 的 `apiKey=` 參數與 `update_contact` 的 FormData `apiKey` 欄位。
+  - `init-shims.js` 新增 `app.getCurrentWebhookHeaders()`：僅在金鑰存在時回傳 `{ 'X-API-Key': key }`，未設定時不送 header。
+  - 設定頁的 Webhook 測試連線、遠端清單匯入都帶上 header；聯絡人 API 測試連線改用 `X-API-Key`。
+- 🛠 **遠端下載網址重組**：以 `URL`／`searchParams` 保留授權參數、移除 `format=json`，再設定 `action=download` 與 `file`；失敗時顯示伺服器訊息與 HTTP 狀態，方便判斷檔案不存在或授權參數不足。
+- ✅ **新增「建立日期」**：商品列表新增 `建立日期` 直欄；進階查詢器新增 `CreateDate` 篩選欄位，日期運算子新增「不晚於／不早於」（僅比對日期，忽略時間）。
+- 🧹 **移除設定頁「聯絡人管理」快速連結**：該連結只是開啟 contacts API URL，並非獨立的聯絡人管理介面，容易誤導；聯絡資料仍由得標流程與「聯絡人 API」設定管理。
+- 🐛 **管理後台按鈕防呆**：`inject-btn.js` 在 `chrome.runtime` 失效或 `sendMessage` 失敗時，改以明確提示請使用者重新整理頁面或重新載入擴充功能。
+- 🔑 **移除程式內建的預設 API Key**：`utils/sheetSync.js` 與 `options.js` 的 `DEFAULT_API_KEY` 改為空字串，未設定金鑰時一律**不送出** `X-API-Key`（不再送出空 header）；原本的共用預設金鑰已於 2026/10 更換，請在設定面板填入各環境自己的金鑰。
+- 🔖 `manifest.json` 版號同步更新為 `1.1.6`。
+
+### v1.1.5 (2026/08)
 - ✅ **批量修改起標價**：批次操作面板新增按鈕，可對篩選清單一次調整起標價，僅套用於「確定尚無人出價」的商品，已在競標中的自動略過並回報略過筆數。
   - `utils/api.js` 抽出通用 `updateProductField()`，`updateProductEndDate()`／`closeProductNow()` 一併改為呼叫共用邏輯，不再各自重複 fetch。
 - ✅ **進階篩選新增欄位**：`商品編號`（number，可組 `>=`/`<=` 做範圍篩選）與 `商品名稱`（新增 text 型別，支援「包含」「不包含」）。

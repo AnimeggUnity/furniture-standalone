@@ -615,7 +615,7 @@
           const printBtnHTML = isW
             ? `<button class="tm-print-pickup-btn" data-winnerid="${row.WinnerID}" data-winnerlabel="${encodeURIComponent(getGroupLabel(row).replace('得標者：',''))}" style="margin-left:8px;padding:1px 7px;font-size:10px;border:1px solid #e67e22;background:#fff;color:#e67e22;border-radius:3px;cursor:pointer;font-weight:normal;vertical-align:middle;">🖨 取貨單</button>`
             : '';
-          groupHeader = `<tr class="tm-group-hdr" style="background:${bg};border-left:4px solid ${ac};"><td colspan="14" style="padding:6px 10px;font-size:12px;font-weight:bold;letter-spacing:.5px;">${lbl}${contactHTML}${editBtnHTML}${printBtnHTML}</td></tr>`;
+          groupHeader = `<tr class="tm-group-hdr" style="background:${bg};border-left:4px solid ${ac};"><td colspan="15" style="padding:6px 10px;font-size:12px;font-weight:bold;letter-spacing:.5px;">${lbl}${contactHTML}${editBtnHTML}${printBtnHTML}</td></tr>`;
         }
       }
       const rowFaqs = faqsByProductID[row.ID] || [];
@@ -644,6 +644,7 @@
         <td style="text-align:right;">${bidPrice(row)}</td>
         <td>${fmt(row.StartDate)}</td>
         <td>${fmt(row.EndDate)}</td>
+        <td>${fmt(row.CreateDate)}</td>
         <td style="text-align:center;">${row.TrackCount || 0}</td>
         <td>${bidderCell(row)}</td>
         <td>${payCell(row)}</td>
@@ -660,7 +661,7 @@
           <tr style="background:#2c3e50;color:#fff;position:sticky;top:0;z-index:1;">
             ${th('')}${th('編號')}${th('名稱')}${th('')}${th('問答')}${th('類別')}
             ${th('起標價', 'right')}${th('競標價', 'right')}
-            ${th('起標日')}${th('截標日')}${th('追蹤', 'center')}
+            ${th('起標日')}${th('截標日')}${th('建立日期')}${th('追蹤', 'center')}
             ${th('得標者/狀態', 'left', '120px')}${th('付款', 'left', '65px')}${th('取貨', 'left', '65px')}
           </tr>
         </thead>
@@ -980,7 +981,7 @@
     const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
     const DEFAULT_WEBHOOK  = 'https://580.blias.com/daobo/files.php?format=json';
     const DEFAULT_CONTACTS = 'https://580.blias.com/daobo/contacts.php';
-    const DEFAULT_API_KEY  = 'furniture-helper-2024-secret';
+    const DEFAULT_API_KEY  = ''; // 不內建金鑰：留空，由使用者填入；未設定時不送出 X-API-Key
 
     const mkSection = (title, bg) => {
       const sec = document.createElement('div');
@@ -1030,7 +1031,6 @@
     const linkSec = mkSection('🔗 快速連結', '#e7f3ff');
     [
       ['Files.php',    () => { const u = new URL(ls('furniture-helper-webhook-url', DEFAULT_WEBHOOK)); window.open(`${u.protocol}//${u.host}${u.pathname}`, '_blank'); }],
-      ['聯絡人管理',   () => window.open(ls('furniture-helper-contacts-api-url', DEFAULT_CONTACTS), '_blank')],
       ['介紹網站',     () => window.open('https://animeggunity.github.io/furniture-standalone/', '_blank')],
       ['GitHub',       () => window.open('https://github.com/AnimeggUnity/furniture-standalone', '_blank')],
     ].forEach(([label, fn]) => {
@@ -1055,7 +1055,7 @@
       const url = rContent.querySelector('#tm-s-webhook').value.trim();
       if (!isValidUrl(url)) { statusEl.textContent = '請輸入有效網址'; return; }
       wTest.textContent = '測試中...'; wTest.disabled = true;
-      try { const r = await fetch(url); const d = r.ok ? await r.json() : null; statusEl.textContent = r.ok ? `Webhook 連線成功，${Array.isArray(d) ? d.length : 0} 筆` : `連線失敗：${r.status}`; }
+      try { const r = await fetch(url, { headers: app.getCurrentWebhookHeaders?.() || {} }); const d = r.ok ? await r.json() : null; statusEl.textContent = r.ok ? `Webhook 連線成功，${Array.isArray(d) ? d.length : 0} 筆` : `連線失敗：${r.status}`; }
       catch (e) { statusEl.textContent = `連線錯誤：${e.message}`; }
       finally { wTest.textContent = '測試連線'; wTest.disabled = false; }
     };
@@ -1066,7 +1066,7 @@
       const key = rContent.querySelector('#tm-s-contacts-key').value.trim();
       if (!isValidUrl(url) || !key) { statusEl.textContent = '請填寫完整欄位'; return; }
       cTest.textContent = '測試中...'; cTest.disabled = true;
-      try { const r = await fetch(`${url}?action=get_contacts&apiKey=${encodeURIComponent(key)}`); const d = r.ok ? await r.json() : null; statusEl.textContent = (r.ok && d?.success) ? `聯絡人 API 連線成功，${d.contacts?.length || 0} 位` : `連線失敗：${d?.error || r.status}`; }
+      try { const r = await fetch(`${url}?action=get_contacts`, { headers: key ? { 'X-API-Key': key } : {} }); const d = r.ok ? await r.json() : null; statusEl.textContent = (r.ok && d?.success) ? `聯絡人 API 連線成功，${d.contacts?.length || 0} 位` : `連線失敗：${d?.error || r.status}`; }
       catch (e) { statusEl.textContent = `連線錯誤：${e.message}`; }
       finally { cTest.textContent = '測試連線'; cTest.disabled = false; }
     };
@@ -1076,7 +1076,7 @@
   async function handleRemoteImport() {
     statusEl.textContent = '連線遠端中...';
     try {
-      const resp = await fetch(app.getCurrentWebhookUrl());
+      const resp = await fetch(app.getCurrentWebhookUrl(), { headers: app.getCurrentWebhookHeaders?.() || {} });
       if (!resp.ok) throw new Error(`無法取得清單: ${resp.statusText}`);
       const files = await resp.json();
       if (!files?.length) { statusEl.textContent = '遠端目前無資料'; return; }
@@ -1151,9 +1151,21 @@
   async function importRemoteFile(fileInfo) {
     const pad = n => String(n).padStart(2, '0');
     statusEl.textContent = `下載中：${fileInfo.title || ''}`;
-    const baseUrl = app.getCurrentWebhookUrl().split('?')[0];
-    const resp = await fetch(`${baseUrl}?action=download&file=${fileInfo.filename}`);
-    if (!resp.ok) throw new Error(`無法下載：${resp.statusText}`);
+    // 保留 Webhook 網址的授權參數，再覆寫本次下載所需的 action/file。
+    // format=json 是清單端點的參數；與 action=download 同時使用時，服務會回傳清單而非檔案。
+    const downloadUrl = new URL(app.getCurrentWebhookUrl());
+    downloadUrl.searchParams.delete('format');
+    downloadUrl.searchParams.set('action', 'download');
+    downloadUrl.searchParams.set('file', fileInfo.filename);
+    const resp = await fetch(downloadUrl, { headers: app.getCurrentWebhookHeaders?.() || {} });
+    if (!resp.ok) {
+      let detail = '';
+      try {
+        const errorData = await resp.clone().json();
+        detail = errorData?.message || errorData?.error || '';
+      } catch (_) { /* 非 JSON 錯誤回應 */ }
+      throw new Error(`無法下載：${detail || resp.statusText}（HTTP ${resp.status}）。請確認檔案仍存在，且 Webhook 網址包含服務端要求的公開授權參數。`);
+    }
     const jsonData = await resp.json();
     if (jsonData.Photos?.length) {
       for (let i = 0; i < jsonData.Photos.length; i++) {

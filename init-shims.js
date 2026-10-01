@@ -6,4 +6,8 @@
   const DEFAULT_WEBHOOK = 'https://580.blias.com/daobo/files.php?format=json';
   app.getCurrentWebhookUrl = () =>
     localStorage.getItem('furniture-helper-webhook-url') || DEFAULT_WEBHOOK;
+  app.getCurrentWebhookHeaders = () => {
+    const key = localStorage.getItem('furniture-helper-contacts-api-key') || '';
+    return key ? { 'X-API-Key': key } : {};
+  };
 })(window.FurnitureHelper = window.FurnitureHelper || {});
