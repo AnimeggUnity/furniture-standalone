@@ -270,7 +270,7 @@ grep -rn "X-API-Key" --include="*.js" .
 
 ## 🔄 版本更新歷史
 
-### v1.1.6 (2026/10，工作區版本，尚未發布)
+### v1.1.6 (Current - 2026/10)
 - 🔐 **API Key 全面改以 `X-API-Key` request header 傳送**：商品清單、商品下載、聯絡人讀取／更新與設定頁「測試連線」皆改為 header 認證；移除 query string 的 `apiKey=` 參數與 `update_contact` 的 FormData `apiKey` 欄位。
   - `init-shims.js` 新增 `app.getCurrentWebhookHeaders()`：僅在金鑰存在時回傳 `{ 'X-API-Key': key }`，未設定時不送 header。
   - 設定頁的 Webhook 測試連線、遠端清單匯入都帶上 header；聯絡人 API 測試連線改用 `X-API-Key`。
