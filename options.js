@@ -166,7 +166,8 @@
       </div>
       <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         <div style="grid-column:1/-1;"><label style="display:block;margin-bottom:4px;color:#555;">品名 *</label>
-          <input id="ef-name" value="${row.Name || ''}"${dis} style="${fieldStyle}"></div>
+          <input id="ef-name"${dis} aria-describedby="ef-name-help" style="${fieldStyle}">
+          <div id="ef-name-help" aria-live="polite" style="margin-top:4px;font-size:12px;color:#666;"></div></div>
         <div><label style="display:block;margin-bottom:4px;color:#555;">類別 *</label>
           <select id="ef-cat"${dis} style="${fieldStyle}">${catOptions}</select></div>
         <div><label style="display:block;margin-bottom:4px;color:#555;">起標價格 *</label>
@@ -199,6 +200,21 @@
       </div>`;
     ovl.appendChild(modal);
     document.body.appendChild(ovl);
+    const nameInput = ovl.querySelector('#ef-name');
+    const nameHelp = ovl.querySelector('#ef-name-help');
+    nameInput.value = row.Name || '';
+    const updateNameHelp = () => {
+      const length = nameInput.value.length;
+      const tooLong = length > 20;
+      nameHelp.textContent = tooLong
+        ? `品名已超過 20 字限制（目前 ${length} / 20），請縮短後再儲存。`
+        : `品名最多 20 字（目前 ${length} / 20）；英文和空白也計入。`;
+      nameHelp.style.color = tooLong ? '#c0392b' : '#666';
+      nameInput.setAttribute('aria-invalid', String(tooLong));
+      return !tooLong;
+    };
+    nameInput.addEventListener('input', updateNameHelp);
+    updateNameHelp();
     const close = () => ovl.remove();
     ovl.querySelector('#tm-edit-close').onclick = close;
     ovl.querySelector('#tm-edit-cancel').onclick = close;
@@ -250,12 +266,13 @@
     });
 
     if (!readOnly) ovl.querySelector('#tm-edit-save').onclick = async () => {
+      if (!updateNameHelp()) { nameInput.focus(); return; }
       const saveBtn = ovl.querySelector('#tm-edit-save');
       saveBtn.textContent = '儲存中...'; saveBtn.disabled = true;
       const payload = {
         ...row,
         Photos:          pendingPhotos,
-        Name:            ovl.querySelector('#ef-name').value,
+        Name:            nameInput.value,
         CategoryID:      Number(ovl.querySelector('#ef-cat').value),
         InitPrice:       Number(ovl.querySelector('#ef-init').value),
         OriginPrice:     Number(ovl.querySelector('#ef-init').value),
