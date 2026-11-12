@@ -2,7 +2,7 @@
 
 一個專為「新北市再生家具拍賣網」管理員設計的專業級 Chrome 擴充功能，提供自動化上架、競標監控、聯絡人同步與高效資料管理功能。
 
-![Version](https://img.shields.io/badge/version-1.1.6-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.7-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Chrome%20|%20Edge-lightgrey.svg)
 ![Manifest](https://img.shields.io/badge/manifest-V3-orange.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -270,14 +270,14 @@ grep -rn "X-API-Key" --include="*.js" .
 
 ## 🔄 版本更新歷史
 
-### 已同步至 GitHub（2026/11）
+### v1.1.7 (Current - 2026/11)
 
 - 📊 **年度統計改版**：可選擇年度並獨立查詢，商品列表仍使用原本的查詢資料。年度為 3 月至隔年 2 月，沿用既有季度分配。
 - 📦 **季度卡片與月份明細**：依建立時間統計上架件數（包含重新上架），並依結標時間顯示有得標者的件數及目前已付款、已取、未取狀態。
 - 💰 **收入與匯出**：彙總已付款商品金額，依結標月份顯示每月、每季和年度收入，支援匯出 CSV；這不是依實際付款月份統計。
 - ℹ️ **資料範圍**：僅統計查詢取得且目前保留的紀錄，刪除後回查數字可能減少。後端查詢日期的篩選依據尚待確認，報表完整性需與實際資料比對。
 
-### v1.1.6 (Current - 2026/10)
+### v1.1.6 (2026/10)
 - 🔐 **API Key 全面改以 `X-API-Key` request header 傳送**：商品清單、商品下載、聯絡人讀取／更新與設定頁「測試連線」皆改為 header 認證；移除 query string 的 `apiKey=` 參數與 `update_contact` 的 FormData `apiKey` 欄位。
   - `init-shims.js` 新增 `app.getCurrentWebhookHeaders()`：僅在金鑰存在時回傳 `{ 'X-API-Key': key }`，未設定時不送 header。
   - 設定頁的 Webhook 測試連線、遠端清單匯入都帶上 header；聯絡人 API 測試連線改用 `X-API-Key`。
