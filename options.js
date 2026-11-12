@@ -1583,6 +1583,125 @@
     finally { btn.textContent = '年度統計'; btn.disabled = false; }
   }
 
+  // 年度統計獨立查詢，不變更列表的 products。
+  function handleAnnualStats() {
+    const body = document.getElementById('tm-db-main');
+    if (!body) return;
+    const now = new Date();
+    const currentYear = now.getFullYear() - (now.getMonth() < 2 ? 1 : 0);
+    body.style.cssText = 'flex:1;overflow-y:auto;padding:20px;';
+    body.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+        <button id="tm-test-back" style="padding:5px 14px;border:1px solid #ccc;background:#fff;border-radius:4px;cursor:pointer;font-size:13px;">← 返回列表</button>
+        <span style="font-size:14px;font-weight:bold;color:#2c3e50;">年度統計</span>
+        <span style="font-size:12px;color:#888;">上架件數</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;background:#f7f9fc;border:1px solid #e4eaf0;border-radius:8px;margin-bottom:16px;">
+        <label style="font-size:13px;font-weight:bold;color:#2c3e50;">統計年度 <input id="tm-test-year" type="number" min="2000" max="9998" value="${currentYear}" style="width:78px;margin-left:6px;padding:6px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:13px;"></label>
+        <button id="tm-test-load" style="padding:7px 16px;background:#2980b9;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">查詢年度</button>
+        <button id="tm-test-export" disabled style="padding:7px 16px;background:#27ae60;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:13px;">匯出 CSV</button>
+        <span id="tm-test-status" style="font-size:12px;color:#6b7280;">請選擇年度並查詢。</span>
+      </div>
+      <div style="padding:12px 15px;margin-bottom:12px;background:#f2f8fd;border-left:4px solid #4a90e2;border-radius:4px;color:#526779;font-size:12px;line-height:1.7;">年度為 3 月至隔年 2 月。上架件數依建立時間統計，包含重新上架；成交件數依結標時間統計有得標者的紀錄，付款、取貨及已付款金額依目前狀態計入結標月份（非付款月份），未取包含所有尚未取貨的得標紀錄。僅統計目前線上保留的紀錄，刪除後回查數字會減少。</div>
+      <div style="padding:12px 15px;margin-bottom:20px;background:#fff8e9;border-left:4px solid #e6a23c;border-radius:4px;color:#8a5b16;font-size:12px;line-height:1.7;">後端日期查詢的篩選依據尚未確認，可能漏掉已建立但競標日期超出查詢範圍的商品；請與實際資料比對。</div>
+      <div id="tm-test-result"></div>`;
+    const yearInput = body.querySelector('#tm-test-year');
+    const loadBtn = body.querySelector('#tm-test-load');
+    const exportBtn = body.querySelector('#tm-test-export');
+    const status = body.querySelector('#tm-test-status');
+    const result = body.querySelector('#tm-test-result');
+    let report = null;
+    body.querySelector('#tm-test-back').onclick = () => renderTable(getDisplayData());
+    yearInput.oninput = () => { report = null; exportBtn.disabled = true; result.innerHTML = ''; status.textContent = '年度已變更，請重新查詢。'; };
+    loadBtn.onclick = async () => {
+      const year = Number(yearInput.value);
+      if (!Number.isInteger(year) || year < 2000 || year > 9998) { status.textContent = '請輸入有效的年度（2000–9998）。'; return; }
+      report = null; exportBtn.disabled = true; result.innerHTML = '';
+      loadBtn.disabled = true; yearInput.disabled = true; status.textContent = '查詢中…';
+      try {
+        const febLast = new Date(year + 1, 2, 0).getDate();
+        const rows = await app.getProducts(`${year}-03-01`, `${year + 1}-02-${febLast}`);
+        if (!Array.isArray(rows)) throw new Error('後端回傳格式錯誤');
+        if (!status.isConnected) return;
+        const counts = {}, soldCounts = {}, paidCounts = {}, gotCounts = {}, notGotCounts = {}, revenueCounts = {};
+        rows.forEach(row => {
+          const date = typeof row.CreateDate === 'string' ? row.CreateDate.slice(0, 10) : '';
+          if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            const month = date.slice(0, 7);
+            counts[month] = (counts[month] || 0) + 1;
+          }
+          const endDate = typeof row.EndDate === 'string' ? row.EndDate.slice(0, 10) : '';
+          if (row.WinnerID && /^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+            const month = endDate.slice(0, 7);
+            soldCounts[month] = (soldCounts[month] || 0) + 1;
+            if (row.IsPay) {
+              paidCounts[month] = (paidCounts[month] || 0) + 1;
+              const amount = Number(row.Payment?.TotalAmount);
+              if (Number.isFinite(amount)) revenueCounts[month] = (revenueCounts[month] || 0) + amount;
+            }
+            if (row.IsGet) gotCounts[month] = (gotCounts[month] || 0) + 1;
+            else notGotCounts[month] = (notGotCounts[month] || 0) + 1;
+          }
+        });
+        const quarters = [[3, 4], [5, 6, 7], [8, 9, 10], [11, 12, 1, 2]];
+        report = quarters.map((months, index) => ({ label: `Q${index + 1}`, months: months.map(month => {
+          const key = `${month <= 2 ? year + 1 : year}-${String(month).padStart(2, '0')}`;
+          return { key, count: counts[key] || 0, sold: soldCounts[key] || 0, paid: paidCounts[key] || 0, got: gotCounts[key] || 0, notGot: notGotCounts[key] || 0, revenue: revenueCounts[key] || 0 };
+        }) }));
+        const total = report.reduce((sum, q) => sum + q.months.reduce((s, m) => s + m.count, 0), 0);
+        const soldTotal = report.reduce((sum, q) => sum + q.months.reduce((s, m) => s + m.sold, 0), 0);
+        const sum = (items, field) => items.reduce((s, m) => s + m[field], 0);
+        const revenueTotal = report.reduce((s, q) => s + sum(q.months, 'revenue'), 0);
+        status.textContent = `查詢回傳 ${rows.length} 筆；${year} 年度上架 ${total} 件，結標成交 ${soldTotal} 件。`;
+        result.innerHTML = `
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px;">
+            <div style="background:#2c3e50;color:#fff;border-radius:8px;padding:18px 24px;min-width:150px;text-align:center;"><div style="font-size:28px;font-weight:bold;">${total}</div><div style="font-size:12px;opacity:.8;">年度上架件數</div></div>
+            <div style="background:#e67e22;color:#fff;border-radius:8px;padding:18px 24px;min-width:150px;text-align:center;"><div style="font-size:28px;font-weight:bold;">${soldTotal}</div><div style="font-size:12px;opacity:.8;">年度結標成交件數</div></div>
+            <div style="background:#27ae60;color:#fff;border-radius:8px;padding:18px 24px;min-width:150px;text-align:center;"><div style="font-size:28px;font-weight:bold;">$${revenueTotal.toLocaleString()}</div><div style="font-size:12px;opacity:.8;">年度收入（依結標月）</div></div>
+            <div style="background:#2980b9;color:#fff;border-radius:8px;padding:18px 24px;min-width:150px;text-align:center;"><div style="font-size:28px;font-weight:bold;">${year}</div><div style="font-size:12px;opacity:.8;">統計年度</div></div>
+          </div>
+          <div style="font-size:15px;font-weight:bold;color:#2c3e50;margin-bottom:12px;">季度統計與月份明細</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:16px;margin-bottom:24px;">
+            ${report.map(q => `
+              <section style="background:#fff;border:1px solid #dfe7ef;border-radius:10px;box-shadow:0 2px 8px rgba(44,62,80,.08);overflow:hidden;">
+                <div style="background:#4a90e2;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                  <strong style="font-size:18px;">${q.label} 季度</strong>
+                  <span style="font-size:12px;opacity:.9;">${q.months[0].key} ～ ${q.months[q.months.length - 1].key}</span>
+                </div>
+                <div style="padding:20px;">
+                  <div style="display:flex;gap:12px;margin-bottom:18px;">
+                    <div style="flex:1;background:#f0f7fd;border-radius:8px;padding:14px;"><div style="font-size:12px;color:#527799;">上架件數</div><div style="font-size:28px;font-weight:bold;color:#2980b9;margin-top:4px;">${q.months.reduce((s, m) => s + m.count, 0)} <span style="font-size:12px;font-weight:normal;">件</span></div></div>
+                    <div style="flex:1;background:#fff5ed;border-radius:8px;padding:14px;"><div style="font-size:12px;color:#a76a40;">結標成交</div><div style="font-size:28px;font-weight:bold;color:#e67e22;margin-top:4px;">${q.months.reduce((s, m) => s + m.sold, 0)} <span style="font-size:12px;font-weight:normal;">件</span></div></div>
+                  </div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 14px;font-size:13px;color:#52616f;">
+                    <span style="background:#eaf7ef;border-radius:5px;padding:7px 10px;">收入 <strong style="color:#27ae60;">$${sum(q.months, 'revenue').toLocaleString()}</strong></span>
+                    <span style="background:#eaf7ef;border-radius:5px;padding:7px 10px;">已付款 <strong style="color:#27ae60;">${sum(q.months, 'paid')}</strong></span>
+                    <span style="background:#edf5fc;border-radius:5px;padding:7px 10px;">已取 <strong style="color:#2980b9;">${sum(q.months, 'got')}</strong></span>
+                    <span style="background:#fff4e9;border-radius:5px;padding:7px 10px;">未取 <strong style="color:#d97706;">${sum(q.months, 'notGot')}</strong></span>
+                  </div>
+                  <div style="overflow-x:auto;">
+                  <table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="color:#8997a5;text-align:right;"><th style="padding:8px 4px;text-align:left;font-weight:normal;">月份</th><th style="padding:8px 4px;font-weight:normal;">上架</th><th style="padding:8px 4px;font-weight:normal;white-space:nowrap;">結標成交</th><th style="padding:8px 4px;font-weight:normal;white-space:nowrap;">已付款</th><th style="padding:8px 4px;font-weight:normal;white-space:nowrap;">已取</th><th style="padding:8px 4px;font-weight:normal;white-space:nowrap;">未取</th><th style="padding:8px 4px;font-weight:normal;white-space:nowrap;">收入</th></tr></thead><tbody>${q.months.map(m => `<tr style="border-top:1px solid #edf0f3;"><td style="padding:11px 4px;color:#52616f;">${m.key}</td><td style="padding:11px 4px;text-align:right;font-weight:600;color:#2980b9;">${m.count}</td><td style="padding:11px 4px;text-align:right;font-weight:600;color:#e67e22;">${m.sold}</td><td style="padding:11px 4px;text-align:right;color:#27ae60;">${m.paid}</td><td style="padding:11px 4px;text-align:right;color:#2980b9;">${m.got}</td><td style="padding:11px 4px;text-align:right;color:#d97706;">${m.notGot}</td><td style="padding:11px 4px;text-align:right;color:#27ae60;white-space:nowrap;">$${m.revenue.toLocaleString()}</td></tr>`).join('')}</tbody></table></div>
+                </div>
+              </section>`).join('')}
+          </div>`;
+        exportBtn.disabled = false;
+      } catch (e) { if (status.isConnected) status.textContent = `查詢失敗：${e.message}`; }
+      finally { loadBtn.disabled = false; yearInput.disabled = false; }
+    };
+    exportBtn.onclick = () => {
+      if (!report) return;
+      const lines = ['季度,月份,上架件數,結標成交件數,已付款,已取,未取,收入（依結標月）'];
+      report.forEach(q => {
+        q.months.forEach(m => lines.push(`${q.label},${m.key},${m.count},${m.sold},${m.paid},${m.got},${m.notGot},${m.revenue}`));
+        lines.push(`${q.label},合計,${q.months.reduce((s, m) => s + m.count, 0)},${q.months.reduce((s, m) => s + m.sold, 0)},${q.months.reduce((s, m) => s + m.paid, 0)},${q.months.reduce((s, m) => s + m.got, 0)},${q.months.reduce((s, m) => s + m.notGot, 0)},${q.months.reduce((s, m) => s + m.revenue, 0)}`);
+      });
+      lines.push(`年度,合計,${report.reduce((s, q) => s + q.months.reduce((n, m) => n + m.count, 0), 0)},${report.reduce((s, q) => s + q.months.reduce((n, m) => n + m.sold, 0), 0)},${report.reduce((s, q) => s + q.months.reduce((n, m) => n + m.paid, 0), 0)},${report.reduce((s, q) => s + q.months.reduce((n, m) => n + m.got, 0), 0)},${report.reduce((s, q) => s + q.months.reduce((n, m) => n + m.notGot, 0), 0)},${report.reduce((s, q) => s + q.months.reduce((n, m) => n + m.revenue, 0), 0)}`);
+      const url = URL.createObjectURL(new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+      const a = document.createElement('a'); a.href = url; a.download = `年度上架統計-${yearInput.value}.csv`; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+  }
+
   async function handlePrint(btn) {
     btn.textContent = '列印中...'; btn.disabled = true;
     try { window.print(); }
@@ -1807,8 +1926,12 @@
     };
     featureBtns.push(trackSortBtn);
 
+    const statsTestBtn = document.createElement('button');
+    statsTestBtn.textContent = '年度統計';
+    statsTestBtn.style.cssText = 'padding:5px 16px;background:#6c5ce7;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;';
+    statsTestBtn.onclick = handleAnnualStats;
     container.append(
-      mkViewBtn('年度統計', '#2980b9', handleStats),
+      statsTestBtn,
       mkViewBtn('列印表格', '#27ae60', handlePrint),
       mkViewBtn('',  '#16a085', () => handleExport()),
       winnerSortBtn,
