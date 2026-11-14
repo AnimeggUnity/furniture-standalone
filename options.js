@@ -550,7 +550,9 @@
     const isAbandoned = r => r.WinnerID && !r.IsPay && r.Payment?.MaxDate && new Date(r.Payment.MaxDate) < now;
 
     const bidPrice = row => {
-      if (row.IsPay && row.Payment?.TotalAmount) return money(row.Payment.TotalAmount);
+      const amount = row.Payment?.TotalAmount;
+      if (row.WinnerID && amount != null && amount !== '' && Number.isFinite(Number(amount))) return money(amount);
+      if (row.WinnerID) return '—';
       if (row.BidPrice) return money(row.BidPrice);
       if (row.HasBids === false) return '<span style="color:#999;">無競標</span>';
       return '—';

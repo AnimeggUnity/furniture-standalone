@@ -233,8 +233,11 @@
         });
         const bids = resp.ok ? await resp.json() : [];
         if (!Array.isArray(bids) || bids.length === 0) return { ...row, HasBids: false, BidChecked: true };
-        const maxBid = bids.reduce((a, b) => parseFloat(a.BidPrice || 0) >= parseFloat(b.BidPrice || 0) ? a : b);
-        return { ...row, BidPrice: maxBid.BidPrice, Bidder: maxBid.BidderName || maxBid.Account || maxBid.NickName, HasBids: true, BidChecked: true };
+        const bidAmount = bid => Number(bid.Price ?? bid.BidPrice);
+        const pricedBids = bids.filter(bid => (bid.Price ?? bid.BidPrice) != null && (bid.Price ?? bid.BidPrice) !== '' && Number.isFinite(bidAmount(bid)));
+        if (!pricedBids.length) return { ...row, HasBids: true, BidChecked: true };
+        const maxBid = pricedBids.reduce((a, b) => bidAmount(a) >= bidAmount(b) ? a : b);
+        return { ...row, BidPrice: bidAmount(maxBid), Bidder: maxBid.BidderName || maxBid.Account || maxBid.NickName, HasBids: true, BidChecked: true };
       } catch {
         return { ...row, HasBids: false, BidChecked: true };
       }
