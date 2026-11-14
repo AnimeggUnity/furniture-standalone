@@ -788,6 +788,11 @@
         const row = indexedData[el.dataset.idx];
         if (!row) return;
         el.textContent = '...'; el.disabled = true;
+        const start = new Date();
+        const end = new Date(start);
+        end.setDate(end.getDate() + 7);
+        const pad = n => String(n).padStart(2, '0');
+        const formatDateTime = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
         const payload = {
           CategoryID:      row.CategoryID,
           Name:            row.Name,
@@ -795,8 +800,8 @@
           InitPrice:       row.InitPrice,
           OriginPrice:     row.OriginPrice || row.InitPrice,
           MinAddPrice:     row.MinAddPrice || 10,
-          StartDate:       row.StartDate,
-          EndDate:         row.EndDate,
+          StartDate:       formatDateTime(start),
+          EndDate:         formatDateTime(end),
           DistID:          row.DistID || '231',
           DeliveryAddress: row.DeliveryAddress || '',
           Length:          row.Length || 0,
